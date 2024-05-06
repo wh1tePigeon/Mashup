@@ -26,3 +26,4 @@ moviepy
 TTS
 pydub
 openai-whisper
+opencv_python
