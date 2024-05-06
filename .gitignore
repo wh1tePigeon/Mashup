@@ -108,7 +108,7 @@ wandb/
 *.pth
 *.ckpt
 *.wav
-*.txt
+#*.txt
 *.srt
 *.arpa
 *.csv
