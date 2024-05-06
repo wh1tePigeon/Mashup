@@ -5,11 +5,7 @@ import numpy as np
 import torch
 import torch.utils.data
 from tqdm import tqdm
-
-try:
-    from lib import spec_utils
-except ModuleNotFoundError:
-    import spec_utils
+from source.utils.spec_utils import cache_or_load, spectrogram_to_image
 
 
 class VocalRemoverTrainingSet(torch.utils.data.Dataset):
@@ -208,7 +204,7 @@ def make_padding(width, cropsize, offset):
 def make_training_set(filelist, sr, hop_length, n_fft):
     ret = []
     for X_path, y_path in tqdm(filelist):
-        X, y, X_cache_path, y_cache_path = spec_utils.cache_or_load(
+        X, y, X_cache_path, y_cache_path = cache_or_load(
             X_path, y_path, sr, hop_length, n_fft
         )
         coef = np.max([np.abs(X).max(), np.abs(y).max()])
@@ -225,7 +221,7 @@ def make_validation_set(filelist, cropsize, sr, hop_length, n_fft, offset):
     for X_path, y_path in tqdm(filelist):
         basename = os.path.splitext(os.path.basename(X_path))[0]
 
-        X, y, _, _ = spec_utils.cache_or_load(X_path, y_path, sr, hop_length, n_fft)
+        X, y, _, _ = cache_or_load(X_path, y_path, sr, hop_length, n_fft)
         coef = np.max([np.abs(X).max(), np.abs(y).max()])
         X, y = X / coef, y / coef
 
@@ -273,7 +269,7 @@ if __name__ == "__main__":
     for mix_path, inst_path in tqdm(filelist):
         mix_basename = os.path.splitext(os.path.basename(mix_path))[0]
 
-        X_spec, y_spec, _, _ = spec_utils.cache_or_load(
+        X_spec, y_spec, _, _ = cache_or_load(
             mix_path, inst_path, 44100, 1024, 2048
         )
 
@@ -283,5 +279,5 @@ if __name__ == "__main__":
         v_mag *= v_mag > y_mag
 
         outpath = '{}/{}_Vocal.jpg'.format(outdir, mix_basename)
-        v_image = spec_utils.spectrogram_to_image(v_mag)
+        v_image = spectrogram_to_image(v_mag)
         utils.imwrite(outpath, v_image)

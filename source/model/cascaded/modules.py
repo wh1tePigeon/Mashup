@@ -2,8 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from lib import spec_utils
-
+from source.utils.spec_utils import crop_center
 
 class Conv2DBNActiv(nn.Module):
 
@@ -52,7 +51,7 @@ class Decoder(nn.Module):
         x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=True)
 
         if skip is not None:
-            skip = spec_utils.crop_center(skip, x)
+            skip = crop_center(skip, x)
             x = torch.cat([x, skip], dim=1)
 
         h = self.conv1(x)
