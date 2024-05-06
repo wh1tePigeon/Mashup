@@ -6,8 +6,6 @@ from hydra.utils import instantiate
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from source.utils.util import prepare_device
-from source.utils.process_audio import load_n_process_audio
-from source.utils.fader import OverlapAddFader
 from omegaconf import OmegaConf
 
 def inference_cascaded(cfg):
