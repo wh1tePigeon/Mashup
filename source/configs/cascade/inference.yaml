@@ -1,0 +1,7 @@
+defaults:
+  - arch: model_conf
+  - separator: separator_conf
+
+name: main
+n_gpu: 1
+checkpoint_path: "$ROOT/checkpoints/cascade/baseline.pth"
