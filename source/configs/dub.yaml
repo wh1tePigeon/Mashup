@@ -1,0 +1,76 @@
+filepath: "$ROOT/input/test2.mp4"
+
+separate_audio:
+  filepath:
+  output_dir: "$ROOT/output/video_n_audio_separated"
+
+bsrnn:
+  n_gpu: 1
+  model: "$ROOT/source/configs/bsrnn/arch/model_conf.yaml"
+  sr: 44100
+  filepath:
+  output_dir: "$ROOT/output/bsrnn"
+  checkpoint_path: "$ROOT/checkpoints/bsrnn/main.pth"
+  window_type: "hann"
+  chunk_size_second: 6.0
+  hop_size_second: 0.5
+  batch_size: 6
+
+vad:
+  sr: 16000
+  filepath:
+  output_dir: "$ROOT/output/vad"
+  checkpoint_path: "$ROOT/checkpoints/vad"
+  activation_th: 0.8
+  deactivation_th: 0.0
+  close_th: 0.250
+  len_th: 0.250
+
+#asr:
+#  type: "ds2"
+#  n_gpu: 1
+#  model: "$ROOT/source/configs/asr/arch/model_conf.yaml"
+#  sr: 16000
+#  filepath:
+#  boundaries:
+#  output_dir: "$ROOT/output/asr"
+#  checkpoint_path: "$ROOT/checkpoints/asr/ds2/main.pth"
+
+asr:
+  type: "whisper"
+  model: "small.en"
+  sr: 16000
+  filepath:
+  boundaries:
+  output_dir: "$ROOT/output/asr"
+  checkpoint_path: "$ROOT/checkpoints/asr/whisper"
+  
+tr:
+  filepath:
+  output_dir : "$ROOT/output/translated/"
+
+cut:
+  filepath:
+  output_dir: "$ROOT/output/cutted/"
+  csv_filepath:
+
+tts:
+  csv_filepath: 
+  output_dir: "$ROOT/output/tts"
+  filename: 
+  target_sr: 
+  checkpoint_path: "$ROOT/checkpoints/tts/lazy"
+
+align_audio:
+  csv_filepath:
+  output_dir: "$ROOT/output/aligned_audio"
+  filename:
+
+concatenate:
+  speech_path:
+  background_path:
+  csv_filepath:
+  filename:
+  output_dir: "$ROOT/output/final"
+  join_video: False
+  video_path: ""

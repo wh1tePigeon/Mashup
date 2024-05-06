@@ -1,0 +1,6 @@
+_target_: source.loss.bsrnn._timefreq.TimeFreqSignalNoisePNormRatioLoss
+
+tkwargs:
+  p: 1
+fkwargs:
+  p: 1

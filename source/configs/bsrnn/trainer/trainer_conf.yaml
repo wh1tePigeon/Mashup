@@ -1,0 +1,12 @@
+epochs: 100
+save_dir: saved/
+save_period: 1
+verbosity: 2
+monitor: min val_loss
+early_stop: 20
+visualize: wandb
+wandb_project: bsrnn
+len_epoch: 1000
+batch_acum: 1
+log_step: 50
+grad_norm_clip: 400

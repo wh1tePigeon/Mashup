@@ -1,0 +1,13 @@
+defaults:
+  - arch: model_conf
+  - dataset: dnr
+  - loss: loss_conf
+  - scheduler: scheduler_conf
+  - metrics: metrics_conf
+  - preprocessing: preprocessing_conf
+  - trainer: trainer_conf
+  - optimizer: optimizer_conf
+
+name: main
+n_gpu: 1
+checkpoint:
