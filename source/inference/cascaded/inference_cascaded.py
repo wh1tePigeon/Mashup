@@ -31,7 +31,8 @@ def inference_cascaded(cfg):
     device = 'cpu'
     model = CascadedNet(cfg["n_fft"], cfg["hop_length"], 32, 128)
     model.to(device)
-    model.load_state_dict(torch.load(cfg["checkpoint_path"], map_location=device))
+    ckpt = torch.load(cfg["checkpoint_path"], map_location=device)
+    model.load_state_dict(ckpt)
     
 
     filepath = cfg["filepath"]
@@ -66,8 +67,8 @@ def inference_cascaded(cfg):
 
         background_spec, vocal_spec = sp.separate(audio_spec)
 
-        background = spectrogram_to_wave(background_spec, hop_length=cfg["hop_length"])
-        vocal = spectrogram_to_wave(vocal_spec, hop_length=cfg["hop_length"])
+        background = torch.from_numpy(spectrogram_to_wave(background_spec, hop_length=cfg["hop_length"]))
+        vocal = torch.from_numpy(spectrogram_to_wave(vocal_spec, hop_length=cfg["hop_length"]))
 
         ta.save(vocal_save_path, vocal, sample_rate=sr)
         ta.save(background_save_path, background, sample_rate=sr)
@@ -123,11 +124,12 @@ def inference_cascaded(cfg):
 if __name__ == "__main__":
     cfg = {
         "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/cascaded/baseline.pth",
-        "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test.wav",
+        "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav",
         "output_dir" : "/home/comp/Рабочий стол/Mashup/output",
         "hop_length" : 1024,
-        "n_fft" : 1024,
+        "n_fft" : 2048,
         "batchsize" : 4,
-        "cropsize" : 256
+        "cropsize" : 256,
+        "postprocess" : False
     }
     inference_cascaded(cfg)
