@@ -73,52 +73,7 @@ def inference_cascaded(cfg):
         ta.save(vocal_save_path, vocal, sample_rate=sr)
         ta.save(background_save_path, background, sample_rate=sr)
 
-
-
-        # audio, filepath = load_n_process_audio(filepath, output_dir, sr)
-        # audio = audio.reshape(1, 1, -1)
-  
-        # # move audio to gpu
-        # audio = audio.to(device)
-
-        # with torch.inference_mode():
-        #     def forward(audio):
-        #         _, output = model({"audio": {"mixture": audio},})
-        #         return output["audio"]
-            
-        #     if audio.shape[-1] / sr > 12:
-        #         fader = OverlapAddFader(window_type=cfg["window_type"],
-        #                                 chunk_size_second=cfg["chunk_size_second"],
-        #                                 hop_size_second=cfg["hop_size_second"],
-        #                                 fs=sr,
-        #                                 batch_size=cfg["batch_size"])
-                
-        #         output = fader(audio,
-        #                         lambda a: forward(a))
-                
-        #     else:
-        #         output = forward(audio)
-            
-        #     speech = output["audio"]["speech"]
-        #     speech = speech.reshape(1, -1)
-        #     audio = audio.reshape(1, -1)
-        #     background = audio - speech
-
-        #     filename = filepath.split(".")[0].split("/")[-1]
-
-        #     directory_save_file = os.path.join(output_dir, filename)
-        #     os.makedirs(directory_save_file, exist_ok=True)
-            
-        #     speech_save_path = os.path.join(directory_save_file, (filename + "_speech.wav"))
-        #     background_save_path = os.path.join(directory_save_file, (filename + "_background.wav"))
-
-        #     speech = speech.to("cpu")
-        #     background = background.to("cpu")
-
-        #     ta.save(speech_save_path, speech, sample_rate=sr)
-        #     ta.save(background_save_path, background, sample_rate=sr)
-
-        #     return [speech_save_path, background_save_path]
+        return [vocal_save_path, background_save_path]
 
 
 if __name__ == "__main__":
