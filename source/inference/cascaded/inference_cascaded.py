@@ -27,8 +27,8 @@ def inference_cascaded(cfg):
     # state_dict = checkpoint["state_dict"]
     # model.load_state_dict(state_dict)
     # model.eval()
-    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    device = 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #device = 'cpu'
     model = CascadedNet(cfg["n_fft"], cfg["hop_length"], 32, 128)
     model.to(device)
     ckpt = torch.load(cfg["checkpoint_path"], map_location=device)
@@ -132,4 +132,5 @@ if __name__ == "__main__":
         "cropsize" : 256,
         "postprocess" : False
     }
-    inference_cascaded(cfg)
+    print(torch.cuda.is_available())
+    #inference_cascaded(cfg)
