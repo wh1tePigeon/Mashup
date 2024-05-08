@@ -79,23 +79,23 @@ def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device):
 
 
 def inference_vits(cfg):
-    if (cfg["ppg"] == None):
-        cfg["ppg"] = "svc_tmp.ppg.npy"
-        print(
-            f"Auto run : python whisper/inference.py -w {cfg['wave']} -p {cfg['ppg']}")
-        os.system(f"python whisper/inference.py -w {cfg['wave']} -p {cfg['ppg']}")
+    # if (cfg["ppg"] == None):
+    #     cfg["ppg"] = "svc_tmp.ppg.npy"
+    #     print(
+    #         f"Auto run : python whisper/inference.py -w {cfg['wave']} -p {cfg['ppg']}")
+    #     os.system(f"python whisper/inference.py -w {cfg['wave']} -p {cfg['ppg']}")
 
-    if (cfg["vec"] == None):
-        cfg["vec"] = "svc_tmp.vec.npy"
-        print(
-            f"Auto run : python hubert/inference.py -w {cfg['wave']} -v {cfg['vec']}")
-        os.system(f"python source/inference/hubert/inference_hubert.py -w {cfg['wave']} -v {cfg['vec']}")
+    # if (cfg["vec"] == None):
+    #     cfg["vec"] = "svc_tmp.vec.npy"
+    #     print(
+    #         f"Auto run : python hubert/inference.py -w {cfg['wave']} -v {cfg['vec']}")
+    #     os.system(f"python source/inference/hubert/inference_hubert.py -w {cfg['wave']} -v {cfg['vec']}")
 
-    if (cfg["pit"] == None):
-        cfg["pit"] = "svc_tmp.pit.csv"
-        print(
-            f"Auto run : python pitch/inference.py -w {cfg['wave']} -p {cfg['pit']}")
-        os.system(f"python source/utils/pitch.py -w {cfg['wave']} -p {cfg['pit']}")
+    # if (cfg["pit"] == None):
+    #     cfg["pit"] = "svc_tmp.pit.csv"
+    #     print(
+    #         f"Auto run : python pitch/inference.py -w {cfg['wave']} -p {cfg['pit']}")
+    #     os.system(f"python source/utils/pitch.py -w {cfg['wave']} -p {cfg['pit']}")
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     #device = 'cpu'
