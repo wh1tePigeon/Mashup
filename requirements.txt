@@ -4,7 +4,6 @@ editdistance
 fire
 fsspec
 gdown
-googletrans==3.1.0a0
 hydra-core
 IPython
 librosa
@@ -33,7 +32,6 @@ torchcrepe
 torchmetrics
 torchvision
 transformers
-TTS
 tqdm
 wandb
 faiss-cpu
