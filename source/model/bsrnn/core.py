@@ -2,14 +2,10 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 from ..bsrnn import BandsplitCoreBase
 from .bandsplit import BandSplitModule
-from .makestim import (
-    MaskEstimationModule,
-    OverlappingMaskEstimationModule
-)
+from .makestim import MaskEstimationModule, OverlappingMaskEstimationModule
 from .tfmodel import SeqBandModellingModule
 
 

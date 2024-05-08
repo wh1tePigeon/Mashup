@@ -1,14 +1,19 @@
-
 import torch
 
 from torch import nn
 from torch.nn import functional as F
-from vits import attentions
-from vits import commons
-from vits import modules
-from vits.utils import f0_to_coarse
-from vits_decoder.generator import Generator
-from vits.modules_grl import SpeakerClassifier
+
+from vits.modules.attentions import Encoder
+from vits.modules.commons import sequence_mask, rand_slice_segments_with_pitch
+from vits.modules.modules import ResidualCouplingLayer, Flip, WN
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+
+from source.utils.f0 import f0_to_coarse
+from source.model.vits.generator.generator import Generator
+from source.model.vits.speaker_classifier import SpeakerClassifier
 
 
 class TextEncoder(nn.Module):
@@ -27,7 +32,7 @@ class TextEncoder(nn.Module):
         self.pre = nn.Conv1d(in_channels, hidden_channels, kernel_size=5, padding=2)
         self.hub = nn.Conv1d(vec_channels, hidden_channels, kernel_size=5, padding=2)
         self.pit = nn.Embedding(256, hidden_channels)
-        self.enc = attentions.Encoder(
+        self.enc = Encoder(
             hidden_channels,
             filter_channels,
             n_heads,
@@ -38,7 +43,7 @@ class TextEncoder(nn.Module):
 
     def forward(self, x, x_lengths, v, f0):
         x = torch.transpose(x, 1, -1)  # [b, h, t]
-        x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(
+        x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.size(2)), 1).to(
             x.dtype
         )
         x = self.pre(x) * x_mask
@@ -67,7 +72,7 @@ class ResidualCouplingBlock(nn.Module):
         self.flows = nn.ModuleList()
         for i in range(n_flows):
             self.flows.append(
-                modules.ResidualCouplingLayer(
+                ResidualCouplingLayer(
                     channels,
                     hidden_channels,
                     kernel_size,
@@ -77,7 +82,7 @@ class ResidualCouplingBlock(nn.Module):
                     mean_only=True,
                 )
             )
-            self.flows.append(modules.Flip())
+            self.flows.append(Flip())
 
     def forward(self, x, x_mask, g=None, reverse=False):
         if not reverse:
@@ -112,7 +117,7 @@ class PosteriorEncoder(nn.Module):
         super().__init__()
         self.out_channels = out_channels
         self.pre = nn.Conv1d(in_channels, hidden_channels, 1)
-        self.enc = modules.WN(
+        self.enc = WN(
             hidden_channels,
             kernel_size,
             dilation_rate,
@@ -122,7 +127,7 @@ class PosteriorEncoder(nn.Module):
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
     def forward(self, x, x_lengths, g=None):
-        x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(
+        x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.size(2)), 1).to(
             x.dtype
         )
         x = self.pre(x) * x_mask
@@ -188,7 +193,7 @@ class SynthesizerTrn(nn.Module):
             ppg, ppg_l, vec, f0=f0_to_coarse(pit))
         z_q, m_q, logs_q, spec_mask = self.enc_q(spec, spec_l, g=g)
 
-        z_slice, pit_slice, ids_slice = commons.rand_slice_segments_with_pitch(
+        z_slice, pit_slice, ids_slice = rand_slice_segments_with_pitch(
             z_q, pit, spec_l, self.segment_size)
         audio = self.dec(spk, z_slice, pit_slice)
 
