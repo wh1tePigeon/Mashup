@@ -36,3 +36,5 @@ transformers
 TTS
 tqdm
 wandb
+faiss-cpu
+faiss-gpu
