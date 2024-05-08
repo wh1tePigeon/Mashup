@@ -99,7 +99,7 @@ def inference_vits(cfg):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     #device = 'cpu'
-    hp = OmegaConf.load(cfg)
+    hp = OmegaConf.load(cfg["hp"])
     model = SynthesizerInfer(
         hp.data.filter_length // 2 + 1,
         hp.data.segment_size // hp.data.hop_length,
@@ -107,8 +107,17 @@ def inference_vits(cfg):
     model.to(device)
     model.eval()
 
-    ckpt = torch.load(cfg["checkpoint_path"], map_location=device)
-    model.load_state_dict(ckpt)
+    checkpoint_dict = torch.load(cfg["checkpoint_path"], map_location="cpu")
+    saved_state_dict = checkpoint_dict["model_g"]
+    state_dict = model.state_dict()
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        try:
+            new_state_dict[k] = saved_state_dict[k]
+        except:
+            print("%s is not in the checkpoint" % k)
+            new_state_dict[k] = v
+    model.load_state_dict(new_state_dict)
 
     retrieval = DummyRetrieval()
 
@@ -193,15 +202,25 @@ def inference_vits(cfg):
 
 
 if __name__ == "__main__":
-    cfg = {
-        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/cascaded/baseline.pth",
-        "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav",
-        "output_dir" : "/home/comp/Рабочий стол/Mashup/output",
-        "hop_length" : 1024,
-        "n_fft" : 2048,
-        "batchsize" : 4,
-        "cropsize" : 256,
-        "postprocess" : False
-    }
-    print(torch.cuda.is_available())
+    # cfg = {
+    #     "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/cascaded/baseline.pth",
+    #     "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav",
+    #     "output_dir" : "/home/comp/Рабочий стол/Mashup/output",
+    #     "hop_length" : 1024,
+    #     "n_fft" : 2048,
+    #     "batchsize" : 4,
+    #     "cropsize" : 256,
+    #     "postprocess" : False
+    # }
+    # print(torch.cuda.is_available())
     #inference_cascaded(cfg)
+    cfg = {
+        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/vits/sovits5.0.pretrain.pth",
+        "spk" : "/home/comp/Рабочий стол/Mashup/output/singer0001.npy",
+        "ppg" : "/home/comp/Рабочий стол/Mashup/output/test.ppg.npy",
+        "vec" : "/home/comp/Рабочий стол/Mashup/output/hubert.npy",
+        "pit" : "/home/comp/Рабочий стол/Mashup/output/pitch.csv",
+        "shift" : 0,
+        "hp" : "/home/comp/Рабочий стол/Mashup/source/configs/vits/base.yaml"
+    }
+    inference_vits(cfg)

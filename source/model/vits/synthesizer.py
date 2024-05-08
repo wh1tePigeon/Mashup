@@ -3,9 +3,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from vits.modules.attentions import Encoder
-from vits.modules.commons import sequence_mask, rand_slice_segments_with_pitch
-from vits.modules.modules import ResidualCouplingLayer, Flip, WN
 
 import sys
 from pathlib import Path
@@ -14,7 +11,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from source.utils.pitch import f0_to_coarse
 from source.model.vits.generator.generator import Generator
 from source.model.vits.speaker_classifier import SpeakerClassifier
-
+from source.model.vits.modules.commons import sequence_mask, rand_slice_segments_with_pitch
+from source.model.vits.modules.modules import ResidualCouplingLayer, Flip, WN
+from source.model.vits.modules.attentions import Encoder
 
 class TextEncoder(nn.Module):
     def __init__(self,
