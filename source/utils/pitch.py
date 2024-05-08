@@ -111,7 +111,7 @@ def load_csv_pitch(path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-w", "--wav", help="wav", dest="wav", required=True)
-    parser.add_argument("-p", "--pit", help="pit", dest="pit", required=True)  # csv for excel
+    parser.add_argument("-p", "--pit", help="pit", dest="pit", required=True)
     args = parser.parse_args()
     print(args.wav)
     print(args.pit)
