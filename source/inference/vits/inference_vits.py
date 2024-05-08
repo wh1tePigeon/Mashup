@@ -9,14 +9,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from source.utils.util import prepare_device
 from omegaconf import OmegaConf
-from source.model.cascaded.cascaded import CascadedNet
+from source.model.vits.synthesizer import SynthesizerInfer
 from source.model.cascaded.separator import Separator
 from source.utils.spec_utils import wave_to_spectrogram, spectrogram_to_wave
 
-def inference_cascaded(cfg):
+def inference_vits(cfg):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     #device = 'cpu'
-    hp = OmegaConf.load(args.config)
+    hp = OmegaConf.load(cfg)
     model = SynthesizerInfer(
         hp.data.filter_length // 2 + 1,
         hp.data.segment_size // hp.data.hop_length,

@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-from source.utils.f0 import f0_to_coarse
+from source.utils.pitch import f0_to_coarse
 from source.model.vits.generator.generator import Generator
 from source.model.vits.speaker_classifier import SpeakerClassifier
 
