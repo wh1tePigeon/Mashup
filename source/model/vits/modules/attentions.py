@@ -1,12 +1,10 @@
-import copy
 import math
-import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-from vits import commons
-from vits.modules import LayerNorm
+from .commons import subsequent_mask, convert_pad_shape
+from .modules import LayerNorm
 
 
 class Encoder(nn.Module):
@@ -137,7 +135,7 @@ class Decoder(nn.Module):
         x: decoder input
         h: encoder output
         """
-        self_attn_mask = commons.subsequent_mask(x_mask.size(2)).to(
+        self_attn_mask = subsequent_mask(x_mask.size(2)).to(
             device=x.device, dtype=x.dtype
         )
         encdec_attn_mask = h_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
@@ -300,7 +298,7 @@ class MultiHeadAttention(nn.Module):
         if pad_length > 0:
             padded_relative_embeddings = F.pad(
                 relative_embeddings,
-                commons.convert_pad_shape([[0, 0], [pad_length, pad_length], [0, 0]]),
+                convert_pad_shape([[0, 0], [pad_length, pad_length], [0, 0]]),
             )
         else:
             padded_relative_embeddings = relative_embeddings
@@ -316,12 +314,12 @@ class MultiHeadAttention(nn.Module):
         """
         batch, heads, length, _ = x.size()
         # Concat columns of pad to shift from relative to absolute indexing.
-        x = F.pad(x, commons.convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, 1]]))
+        x = F.pad(x, convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, 1]]))
 
         # Concat extra elements so to add up to shape (len+1, 2*len-1).
         x_flat = x.view([batch, heads, length * 2 * length])
         x_flat = F.pad(
-            x_flat, commons.convert_pad_shape([[0, 0], [0, 0], [0, length - 1]])
+            x_flat, convert_pad_shape([[0, 0], [0, 0], [0, length - 1]])
         )
 
         # Reshape and slice out the padded elements.
@@ -338,11 +336,11 @@ class MultiHeadAttention(nn.Module):
         batch, heads, length, _ = x.size()
         # padd along column
         x = F.pad(
-            x, commons.convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, length - 1]])
+            x, convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, length - 1]])
         )
         x_flat = x.view([batch, heads, length**2 + length * (length - 1)])
         # add 0's in the beginning that will skew the elements after reshape
-        x_flat = F.pad(x_flat, commons.convert_pad_shape([[0, 0], [0, 0], [length, 0]]))
+        x_flat = F.pad(x_flat, convert_pad_shape([[0, 0], [0, 0], [length, 0]]))
         x_final = x_flat.view([batch, heads, length, 2 * length])[:, :, :, 1:]
         return x_final
 
@@ -403,7 +401,7 @@ class FFN(nn.Module):
         pad_l = self.kernel_size - 1
         pad_r = 0
         padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-        x = F.pad(x, commons.convert_pad_shape(padding))
+        x = F.pad(x, convert_pad_shape(padding))
         return x
 
     def _same_padding(self, x):
@@ -412,5 +410,5 @@ class FFN(nn.Module):
         pad_l = (self.kernel_size - 1) // 2
         pad_r = self.kernel_size // 2
         padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-        x = F.pad(x, commons.convert_pad_shape(padding))
+        x = F.pad(x, convert_pad_shape(padding))
         return x
