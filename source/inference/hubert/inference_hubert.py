@@ -54,17 +54,20 @@ def pred_vec(model, wavPath, vecPath, device):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-w", "--wav", help="wav", dest="wav", required=True)
-    parser.add_argument("-v", "--vec", help="vec", dest="vec", required=True)
-    args = parser.parse_args()
-    print(args.wav)
-    print(args.vec)
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-w", "--wav", help="wav", dest="wav", required=True)
+    # parser.add_argument("-v", "--vec", help="vec", dest="vec", required=True)
+    # args = parser.parse_args()
+    # print(args.wav)
+    # print(args.vec)
 
-    wavPath = args.wav
-    vecPath = args.vec
+    # wavPath = args.wav
+    # vecPath = args.vec
+
+    wavPath = "/home/comp/Рабочий стол/Mashup/output/ramm_test/ramm_test_vocal.wav"
+    vecPath = "/home/comp/Рабочий стол/Mashup/output/hubert"
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    hubert = load_model(os.path.join(
-        "hubert_pretrain", "hubert-soft-0d54a1f4.pt"), device)
+    hubert = load_model(os.path.join("/home/comp/Рабочий стол/Mashup/checkpoints/hubert", "hubert-soft-0d54a1f4.pt"), device)
+
     pred_vec(hubert, wavPath, vecPath, device)

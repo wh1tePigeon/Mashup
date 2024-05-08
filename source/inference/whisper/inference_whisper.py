@@ -44,7 +44,7 @@ def pred_ppg(whisper: Whisper, wavPath, ppgPath, device):
             mel = mel.half()
         with torch.no_grad():
             mel = mel + torch.randn_like(mel) * 0.1
-            ppg = whisper.encoder(mel.unsqueeze(0)).squeeze().data.cpu().float().numpy()
+            ppg = whisper.encoder(mel.unsqueeze(0))#.squeeze().data.cpu().float().numpy()
             ppg = ppg[:ppgln,]  # [length, dim=1024]
             ppg_a.extend(ppg)
     if (idx_s < audln):
@@ -63,16 +63,18 @@ def pred_ppg(whisper: Whisper, wavPath, ppgPath, device):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-w", "--wav", help="wav", dest="wav", required=True)
-    parser.add_argument("-p", "--ppg", help="ppg", dest="ppg", required=True)
-    args = parser.parse_args()
-    print(args.wav)
-    print(args.ppg)
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-w", "--wav", help="wav", dest="wav", required=True)
+    # parser.add_argument("-p", "--ppg", help="ppg", dest="ppg", required=True)
+    # args = parser.parse_args()
+    # print(args.wav)
+    # print(args.ppg)
 
-    wavPath = args.wav
-    ppgPath = args.ppg
+    # wavPath = args.wav
+    # ppgPath = args.ppg
+    wavPath = "/home/comp/Рабочий стол/Mashup/output/ramm_test/ramm_test_vocal.wav"
+    ppgPath = "/home/comp/Рабочий стол/Mashup/output/whisper"
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    whisper = load_model(os.path.join("whisper_pretrain", "large-v2.pt"), device)
+    whisper = load_model(os.path.join("/home/comp/Рабочий стол/Mashup/checkpoints/whisper", "large-v2.pt"), device)
     pred_ppg(whisper, wavPath, ppgPath, device)
