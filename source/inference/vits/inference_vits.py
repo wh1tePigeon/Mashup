@@ -20,7 +20,7 @@ from source.utils.feature_retrieval import IRetrieval
 
 
 
-def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device):
+def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device) -> torch.Tensor:
     len_pit = pit.size()[0]
     len_vec = vec.size()[0]
     len_ppg = ppg.size()[0]
@@ -35,7 +35,7 @@ def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device):
         source = pit.unsqueeze(0).to(device)
         source = model.pitch2source(source)
         pitwav = model.source2wav(source)
-        write("svc_out_pit.wav", hp.data.sampling_rate, pitwav)
+        #write("svc_out_pit.wav", hp.data.sampling_rate, pitwav)
 
         hop_size = hp.data.hop_length
         all_frame = len_min
@@ -76,7 +76,7 @@ def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device):
             out_audio.extend(sub_out)
             out_index = out_index + out_chunk
 
-        out_audio = np.asarray(out_audio)
+        out_audio = torch.Tensor(out_audio)
     return out_audio
 
 
@@ -103,17 +103,30 @@ def inference_vits(cfg):
     model.load_state_dict(new_state_dict)
 
     retrieval = DummyRetrieval()
+    filepath = cfg["filepath"]
+    assert os.path.exists(filepath)
+
+    output_dir = cfg["output_dir"]
+    filename = filepath.split(".")[0].split("/")[-1]
+    directory_save_file = os.path.join(output_dir, filename)
+    os.makedirs(directory_save_file, exist_ok=True)
+
+    vc_save_path = os.path.join(directory_save_file, (filename + "_converted.wav"))
 
     if cfg["ppg"] == "":
-        cfg["ppg"] = get_ppg(cfg["ppg"])
+        cfg["process_ppg"]["filepath"] = filepath
+        cfg["ppg"] = get_ppg(cfg["process_ppg"])
 
     if cfg["vec"] == "":
+        cfg["process_vec"]["filepath"] = filepath
         cfg["vec"] = get_vec(cfg["process_vec"])
 
     if cfg["pitch"] == "":
-        cfg["pitch"] = get_pitch(cfg["pitch"])
+        cfg["process_pitch"]["filepath"] = filepath
+        cfg["pitch"] = get_pitch(cfg["process_pitch"])
 
-
+    for elem in ["spk", "ppg", "vec", "pitch"]:
+        assert os.path.exists(cfg[elem])
 
     spk = np.load(cfg["spk"])
     spk = torch.FloatTensor(spk)
@@ -143,71 +156,17 @@ def inference_vits(cfg):
         pitch = pitch * shift
     pitch = torch.FloatTensor(pitch)
 
-    out_audio = svc_infer(model, retrieval, spk, pitch, ppg, vec, mc, device)
-    write("svc_out.wav", mc.data.sampling_rate, out_audio)
+    converted = svc_infer(model, retrieval, spk, pitch, ppg, vec, mc, device)
+    #write("svc_out.wav", mc.data.sampling_rate, out_audio)
 
+    ta.save(vc_save_path, converted, sample_rate=mc.data.sampling_rate)
 
+    return vc_save_path
 
 
     
-    # ckpt = torch.load(cfg["checkpoint_path"], map_location=device)
-    # model.load_state_dict(ckpt)
-    
-
-    # filepath = cfg["filepath"]
-    # output_dir = cfg["output_dir"]
-
-    # if os.path.isfile(filepath):
-    #     sr = 44100
-    #     audio, _ = librosa.load(
-    #     filepath, sr=sr, mono=False, dtype=np.float32, res_type='kaiser_fast')
-
-    #     filename = filepath.split(".")[0].split("/")[-1]
-        
-    #     directory_save_file = os.path.join(output_dir, filename)
-    #     os.makedirs(directory_save_file, exist_ok=True)
-        
-    #     vocal_save_path = os.path.join(directory_save_file, (filename + "_vocal.wav"))
-    #     background_save_path = os.path.join(directory_save_file, (filename + "_background.wav"))
-        
-    #     if audio.ndim == 1:
-    #     # mono to stereo
-    #         audio = np.asarray([audio, audio])
-
-    #     audio_spec = wave_to_spectrogram(audio, cfg["hop_length"], cfg["n_fft"])
-
-    #     sp = Separator(
-    #         model=model,
-    #         device=device,
-    #         batchsize=cfg["batchsize"],
-    #         cropsize=cfg["cropsize"],
-    #         postprocess=cfg["postprocess"]
-    #     )
-
-    #     background_spec, vocal_spec = sp.separate(audio_spec)
-
-    #     background = torch.from_numpy(spectrogram_to_wave(background_spec, hop_length=cfg["hop_length"]))
-    #     vocal = torch.from_numpy(spectrogram_to_wave(vocal_spec, hop_length=cfg["hop_length"]))
-
-    #     ta.save(vocal_save_path, vocal, sample_rate=sr)
-    #     ta.save(background_save_path, background, sample_rate=sr)
-
-    #     return [vocal_save_path, background_save_path]
-
 
 if __name__ == "__main__":
-    # cfg = {
-    #     "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/cascaded/baseline.pth",
-    #     "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav",
-    #     "output_dir" : "/home/comp/Рабочий стол/Mashup/output",
-    #     "hop_length" : 1024,
-    #     "n_fft" : 2048,
-    #     "batchsize" : 4,
-    #     "cropsize" : 256,
-    #     "postprocess" : False
-    # }
-    # print(torch.cuda.is_available())
-    #inference_cascaded(cfg)
     cfg = {
         "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/vits/sovits5.0.pretrain.pth",
         "spk" : "/home/comp/Рабочий стол/Mashup/output/singer0001.npy",
