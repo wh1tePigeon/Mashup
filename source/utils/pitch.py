@@ -1,13 +1,7 @@
 import torch
 import numpy as np
-import argparse
 import librosa
 import torchcrepe
-import sys
-import os
-
-
-MATPLOTLIB_FLAG = False
 
 
 f0_bin = 256
@@ -106,24 +100,3 @@ def load_csv_pitch(path):
             pit = line.strip().split(",")[-1]
             pitch.append(int(pit))
     return pitch
-
-
-if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("-w", "--wav", help="wav", dest="wav", required=True)
-    # parser.add_argument("-p", "--pit", help="pit", dest="pit", required=True)
-    # args = parser.parse_args()
-    # print(args.wav)
-    # print(args.pit)
-
-    wavPath = "/home/comp/Рабочий стол/Mashup/output/ramm_test/ramm_test_vocal.wav"
-    pitPath = "/home/comp/Рабочий стол/Mashup/output/pitch.csv"
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    pitch = compute_f0_sing(wavPath, device)
-    save_csv_pitch(pitch, pitPath)
-    # tmp = load_csv_pitch(args.pit)
-    # save_csv_pitch(tmp, "tmp.csv")
