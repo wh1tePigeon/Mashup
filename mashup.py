@@ -35,7 +35,7 @@ def dub(cfg):
     cfg["vits"]["filepath"] = vocal_path
     converted_path = inference_vits(cfg["vits"])
 
-    print("Concatenate")
+    print("Concatenating")
     cfg["concatenate"]["vocal_path"] = converted_path
     cfg["concatenate"]["background_path"] = background_path
     cfg["concatenate"]["filename"] = filename
