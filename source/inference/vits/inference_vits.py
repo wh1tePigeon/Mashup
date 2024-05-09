@@ -1,18 +1,12 @@
 import os
 import sys
 import torch
-import torchaudio as ta
-import librosa
 import numpy as np
-from hydra.utils import instantiate
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
-from source.utils.util import prepare_device
 from omegaconf import OmegaConf
-from .preprocess import get_vec, get_ppg, get_pitch
+from source.inference.vits.preprocess import get_vec, get_ppg, get_pitch
 from source.model.vits.synthesizer import SynthesizerInfer
-from source.model.cascaded.separator import Separator
-from source.utils.spec_utils import wave_to_spectrogram, spectrogram_to_wave
 from source.utils.feature_retrieval import DummyRetrieval, IRetrieval
 from scipy.io.wavfile import write
 from source.utils.pitch import load_csv_pitch
@@ -75,7 +69,7 @@ def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device) -> t
             out_audio.extend(sub_out)
             out_index = out_index + out_chunk
 
-        out_audio = torch.Tensor(out_audio)
+        out_audio = np.asarray(out_audio)
     return out_audio
 
 
@@ -156,9 +150,9 @@ def inference_vits(cfg):
     pitch = torch.FloatTensor(pitch)
 
     converted = svc_infer(model, retrieval, spk, pitch, ppg, vec, mc, device)
-    #write("svc_out.wav", mc.data.sampling_rate, out_audio)
+    write(vc_save_path, mc.data.sampling_rate, converted)
 
-    ta.save(vc_save_path, converted, sample_rate=mc.data.sampling_rate)
+    #ta.save(vc_save_path, converted, sample_rate=mc.data.sampling_rate)
 
     return vc_save_path
 
@@ -168,11 +162,13 @@ def inference_vits(cfg):
 if __name__ == "__main__":
     cfg = {
         "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/vits/sovits5.0.pretrain.pth",
-        "spk" : "/home/comp/Рабочий стол/Mashup/output/singer0001.npy",
-        "ppg" : "/home/comp/Рабочий стол/Mashup/output/test.ppg.npy",
-        "vec" : "/home/comp/Рабочий стол/Mashup/output/hubert.npy",
-        "pit" : "/home/comp/Рабочий стол/Mashup/output/pitch.csv",
+        "spk" : "/home/comp/Рабочий стол/Mashup/input/singer0001.npy",
+        "ppg" : "/home/comp/Рабочий стол/Mashup/input/test.ppg.npy",
+        "vec" : "/home/comp/Рабочий стол/Mashup/output/hubert/ramm_test_vocal_short/ramm_test_vocal_short_hubert.npy",
+        "pitch" : "/home/comp/Рабочий стол/Mashup/output/pitch/ramm_test_vocal_short/ramm_test_vocal_short_pitch.csv",
         "shift" : 0,
-        "hp" : "/home/comp/Рабочий стол/Mashup/source/configs/vits/base.yaml"
+        "model_config" : "/home/comp/Рабочий стол/Mashup/source/configs/vits/base.yaml",
+        "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test_vocal_short.wav",
+        "output_dir" : "/home/comp/Рабочий стол/Mashup/output/vits"
     }
     inference_vits(cfg)

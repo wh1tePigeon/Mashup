@@ -107,15 +107,15 @@ def get_pitch(cfg):
     return pitch_save_path
 
 
-#if __name__ == "__main__":
-    # cfg = {
-    #     "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test.wav",
-    #     "output_dir" : "/home/comp/Рабочий стол/Mashup/output/hubert",
-    #     "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/hubert/hubert-soft-0d54a1f4.pt"
-    # }
+if __name__ == "__main__":
+    cfg = {
+        "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test_vocal_short.wav",
+        "output_dir" : "/home/comp/Рабочий стол/Mashup/output/hubert",
+        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/hubert/hubert-soft-0d54a1f4.pt"
+    }
 
     # cfg = {
-    #     "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test.wav",
+    #     "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test_vocal_short.wav",
     #     "output_dir" : "/home/comp/Рабочий стол/Mashup/output/pitch"
     # }
 
@@ -125,4 +125,6 @@ def get_pitch(cfg):
     #     "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/whisper",
     #     "model" : "small"
     # }
-    # get_ppg(cfg)
+    get_vec(cfg)
+    #get_pitch(cfg)
+    #get_ppg(cfg)
