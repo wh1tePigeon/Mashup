@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from source.utils.util import prepare_device
 from omegaconf import OmegaConf
+from .preprocess import get_vec, get_ppg, get_pitch
 from source.model.vits.synthesizer import SynthesizerInfer
 from source.model.cascaded.separator import Separator
 from source.utils.spec_utils import wave_to_spectrogram, spectrogram_to_wave
@@ -16,6 +17,7 @@ from source.utils.feature_retrieval import DummyRetrieval
 from scipy.io.wavfile import write
 from source.utils.pitch import load_csv_pitch
 from source.utils.feature_retrieval import IRetrieval
+
 
 
 def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device):
@@ -79,31 +81,12 @@ def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device):
 
 
 def inference_vits(cfg):
-    # if (cfg["ppg"] == None):
-    #     cfg["ppg"] = "svc_tmp.ppg.npy"
-    #     print(
-    #         f"Auto run : python whisper/inference.py -w {cfg['wave']} -p {cfg['ppg']}")
-    #     os.system(f"python whisper/inference.py -w {cfg['wave']} -p {cfg['ppg']}")
-
-    # if (cfg["vec"] == None):
-    #     cfg["vec"] = "svc_tmp.vec.npy"
-    #     print(
-    #         f"Auto run : python hubert/inference.py -w {cfg['wave']} -v {cfg['vec']}")
-    #     os.system(f"python source/inference/hubert/inference_hubert.py -w {cfg['wave']} -v {cfg['vec']}")
-
-    # if (cfg["pit"] == None):
-    #     cfg["pit"] = "svc_tmp.pit.csv"
-    #     print(
-    #         f"Auto run : python pitch/inference.py -w {cfg['wave']} -p {cfg['pit']}")
-    #     os.system(f"python source/utils/pitch.py -w {cfg['wave']} -p {cfg['pit']}")
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    #device = 'cpu'
-    hp = OmegaConf.load(cfg["hp"])
+    mc = OmegaConf.load(cfg["model_config"])
     model = SynthesizerInfer(
-        hp.data.filter_length // 2 + 1,
-        hp.data.segment_size // hp.data.hop_length,
-        hp)
+        mc.data.filter_length // 2 + 1,
+        mc.data.segment_size // mc.data.hop_length,
+        mc)
     model.to(device)
     model.eval()
 
@@ -121,6 +104,17 @@ def inference_vits(cfg):
 
     retrieval = DummyRetrieval()
 
+    if cfg["ppg"] == "":
+        cfg["ppg"] = get_ppg(cfg["ppg"])
+
+    if cfg["vec"] == "":
+        cfg["vec"] = get_vec(cfg["process_vec"])
+
+    if cfg["pitch"] == "":
+        cfg["pitch"] = get_pitch(cfg["pitch"])
+
+
+
     spk = np.load(cfg["spk"])
     spk = torch.FloatTensor(spk)
 
@@ -132,13 +126,13 @@ def inference_vits(cfg):
     vec = np.repeat(vec, 2, 0) # 320 PPG -> 160 * 2
     vec = torch.FloatTensor(vec)
 
-    pit = load_csv_pitch(cfg["pit"])
+    pitch = load_csv_pitch(cfg["pitch"])
     print("pitch shift: ", cfg["shift"])
     if (cfg["shift"] == 0):
         pass
     else:
-        pit = np.array(pit)
-        source = pit[pit > 0]
+        pitch = np.array(pitch)
+        source = pitch[pitch > 0]
         source_ave = source.mean()
         source_min = source.min()
         source_max = source.max()
@@ -146,11 +140,11 @@ def inference_vits(cfg):
                 min={source_min:0.1f}, max={source_max:0.1f}")
         shift = cfg["shift"]
         shift = 2 ** (shift / 12)
-        pit = pit * shift
-    pit = torch.FloatTensor(pit)
+        pitch = pitch * shift
+    pitch = torch.FloatTensor(pitch)
 
-    out_audio = svc_infer(model, retrieval, spk, pit, ppg, vec, hp, device)
-    write("svc_out.wav", hp.data.sampling_rate, out_audio)
+    out_audio = svc_infer(model, retrieval, spk, pitch, ppg, vec, mc, device)
+    write("svc_out.wav", mc.data.sampling_rate, out_audio)
 
 
 
