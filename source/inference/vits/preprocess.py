@@ -7,6 +7,9 @@ import librosa
 import torch
 import torchaudio
 import requests
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+from source.model.hubert.hubert import hubert_soft
 
 def get_ppg(cfg):
     return 0
@@ -23,12 +26,10 @@ def get_vec(cfg):
 
     vec_save_path = os.path.join(directory_save_file, (filename + "_hubert.npy"))
 
-    hubert = torch.hub.load("bshall/hubert:main", "hubert_soft", trust_repo=True).to(device)
-
-    audio, sr = torchaudio.load(filepath)
-    audio = torchaudio.functional.resample(audio, sr, 16000)
-    audio = audio.to(device)
-
+    hubert = hubert_soft(cfg["checkpoint_path"])
+    audio, _ = librosa.load(filepath, sr=16000)
+    audio = torch.from_numpy(audio).to(device)
+    audio = audio[None, None, :]
     with torch.inference_mode():
         units = hubert.units(audio).squeeze().data.cpu().float().numpy()
         np.save(vec_save_path, units, allow_pickle=False)
@@ -41,6 +42,7 @@ def get_pitch(cfg):
 if __name__ == "__main__":
     cfg = {
         "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test.wav",
-        "output_dir" : "/home/comp/Рабочий стол/Mashup/output/hubert"
+        "output_dir" : "/home/comp/Рабочий стол/Mashup/output/hubert",
+        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/hubert/hubert-soft-0d54a1f4.pt"
     }
     get_vec(cfg)
