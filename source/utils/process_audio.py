@@ -206,6 +206,15 @@ def concat_tracks(vocal_path, background_path, filename, output_dir):
     if background.shape[0] > 1:
         background = torch.mean(background, dim=0, keepdim=True)
 
+    background_len = background.shape[-1]
+    vocal_len = vocal.shape[-1]
+
+    if background_len <= vocal_len:
+        vocal = vocal[:, :background_len]
+    else:
+        padding_size = background_len - vocal_len
+        vocal = F.pad(vocal, pad=(0, padding_size), mode='constant', value=0)
+
     sum = vocal + background
 
     directory_save_file = os.path.join(output_dir, filename)

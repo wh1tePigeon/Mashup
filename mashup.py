@@ -27,6 +27,9 @@ def dub(cfg):
     print("Separating vocal")
     cfg["cascaded"]["filepath"] = cfg["filepath"]
     vocal_path, background_path = inference_cascaded(cfg["cascaded"])
+    # vocal_path = "/home/comp/Рабочий стол/Mashup/input/ramm_test_vocal.wav"
+    # filename = "ramm_test"
+    # background_path = "/home/comp/Рабочий стол/Mashup/input/ramm_test_background.wav"
     
     print("Converting vocal")
     cfg["vits"]["filepath"] = vocal_path

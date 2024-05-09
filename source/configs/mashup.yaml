@@ -14,6 +14,18 @@ vits:
   pitch: ""
   shift: 0
   model_config: "$ROOT/source/configs/vits/base.yaml"
+  process_vec:
+    filepath:
+    output_dir: "$ROOT/output/hubert"
+    checkpoint_path: "$ROOT/checkpoints/hubert/hubert-soft-0d54a1f4.pt"
+  process_pitch:
+    filepath:
+    output_dir: "$ROOT/output/pitch"
+  process_ppg:
+    filepath:
+    output_dir: "$ROOT/output/whisper"
+    checkpoint_path: "$ROOT/checkpoints/whisper"
+    model: "small"
 
 concatenate:
   vocal_path:
