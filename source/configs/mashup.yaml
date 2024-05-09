@@ -1,0 +1,22 @@
+filepath: "$ROOT/input/test2.mp4"
+
+cascaded:
+  filepath:
+  output_dir: "$ROOT/output/cascaded"
+
+vits:
+  filepath:
+  output_dir: "$ROOT/output/vits"
+  checkpoint_path: "$ROOT/checkpoints/vits/sovits5.0.pretrain.pth"
+  spk: "$ROOT/input/singer0001.npy"
+  ppg: "$ROOT/input/test.ppg.npy"
+  vec: ""
+  pitch: ""
+  shift: 0
+  model_config: "$ROOT/source/configs/vits/base.yaml"
+
+concatenate:
+  vocal_path:
+  background_path:
+  filename:
+  output_dir: "$ROOT/output/final"

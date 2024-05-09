@@ -192,6 +192,32 @@ def concat_segments(speech_path, background_path, csv_filepath, filename,
     return [final_audio_save_path, final_video_save_path]
 
 
+def concat_tracks(vocal_path, background_path, filename, output_dir):
+    assert os.path.exists(vocal_path)
+    assert os.path.exists(background_path)
+
+    vocal, vocal_sr = ta.load(vocal_path)
+    background, background_sr = ta.load(background_path)
+
+    if vocal_sr != background_sr:
+        vocal = ta.functional.resample(vocal, vocal_sr, background_sr)
+    if vocal.shape[0] > 1:
+        vocal = torch.mean(vocal, dim=0, keepdim=True)
+    if background.shape[0] > 1:
+        background = torch.mean(background, dim=0, keepdim=True)
+
+    sum = vocal + background
+
+    directory_save_file = os.path.join(output_dir, filename)
+    os.makedirs(directory_save_file, exist_ok=True)
+
+    final_audio_name = filename + "_final.wav"
+    final_audio_save_path = os.path.join(directory_save_file, final_audio_name)
+    ta.save(final_audio_save_path, sum, sample_rate=background_sr)
+
+    return final_audio_save_path
+
+
 if __name__ == "__main__":
     speech_path = "/home/comp/Рабочий стол/AutoDub/output/bsrnn/1_mono/1_mono_speech.wav"
     background_path = "/home/comp/Рабочий стол/AutoDub/output/bsrnn/1_mono/1_mono_background.wav"
