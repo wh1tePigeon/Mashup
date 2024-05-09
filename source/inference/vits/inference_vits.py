@@ -13,10 +13,9 @@ from .preprocess import get_vec, get_ppg, get_pitch
 from source.model.vits.synthesizer import SynthesizerInfer
 from source.model.cascaded.separator import Separator
 from source.utils.spec_utils import wave_to_spectrogram, spectrogram_to_wave
-from source.utils.feature_retrieval import DummyRetrieval
+from source.utils.feature_retrieval import DummyRetrieval, IRetrieval
 from scipy.io.wavfile import write
 from source.utils.pitch import load_csv_pitch
-from source.utils.feature_retrieval import IRetrieval
 
 
 
@@ -34,7 +33,7 @@ def svc_infer(model, retrieval: IRetrieval, spk, pit, ppg, vec, hp, device) -> t
         spk = spk.unsqueeze(0).to(device)
         source = pit.unsqueeze(0).to(device)
         source = model.pitch2source(source)
-        pitwav = model.source2wav(source)
+        #pitwav = model.source2wav(source)
         #write("svc_out_pit.wav", hp.data.sampling_rate, pitwav)
 
         hop_size = hp.data.hop_length
