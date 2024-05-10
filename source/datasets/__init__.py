@@ -7,6 +7,9 @@ from source.datasets.classic import (CustomAudioDataset,
                                      LibrispeechDataset,
                                      LJspeechDataset)
 
+from source.datasets.cascaded.dataset import (VocalRemoverTrainingSet,
+                                              VocalRemoverValidationSet)
+
 __all__ = [
     "DivideAndRemasterDataset",
     "DivideAndRemasterDeterministicChunkDataset",
@@ -15,5 +18,7 @@ __all__ = [
     "CustomDirAudioDataset",
     "CommonVoiceDataset",
     "LibrispeechDataset",
-    "LJspeechDataset"
+    "LJspeechDataset",
+    "VocalRemoverTrainingSet",
+    "VocalRemoverValidationSet"
 ]
