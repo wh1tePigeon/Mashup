@@ -167,9 +167,9 @@ class Trainer(BaseTrainer):
             preds = np.array(preds)
             targets = np.array(targets)
             
-            eer, _ = compute_eer(preds[targets == 1], preds[targets == 0])
-            self.writer.add_scalar("EER", eer)
-            self.evaluation_metrics.update("EER", eer)
+            #eer, _ = compute_eer(preds[targets == 1], preds[targets == 0])
+            #self.writer.add_scalar("EER", eer)
+            #self.evaluation_metrics.update("EER", eer)
 
             self.writer.set_step(epoch * self.len_epoch, part)
             self._log_scalars(self.evaluation_metrics)
