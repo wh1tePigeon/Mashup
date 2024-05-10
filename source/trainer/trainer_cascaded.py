@@ -125,8 +125,9 @@ class Trainer(BaseTrainer):
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
 
-        batch["pred"] = self.model(batch["audio"])
-        batch["loss"] = self.criterion(batch["pred"], batch["bonafied"])
+        mask = self.model(batch)
+        pred = batch * mask
+        batch["loss"] = self.criterion(pred, batch["bonafied"])
 
         if is_train:
             self.optimizer.zero_grad()
