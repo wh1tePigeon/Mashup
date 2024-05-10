@@ -56,6 +56,24 @@ def get_usernames(json_path: str, replace=True) -> list:
                 users.add(user)
     
     return users
+
+
+# def del_spaces(dirpath: str):
+#     for item in os.listdir(dirpath):
+#         path = os.path.join(dirpath, item)
+#         if os.path.isfile(path):
+#             item = str(item)
+#             new_name = '_'.join(item.split())
+#             dirname = os.path.dirname(path)
+#             new_path = os.path.join(dirname, new_name)
+#             os.rename(path, new_path)
+#         elif os.path.isdir(path):
+#             del_spaces(path)
+#             #item = str(item)
+#             new_name = '_'.join(item.split())
+#             dirname = os.path.dirname(path)
+#             new_path = os.path.join(dirname, new_name)
+#             os.rename(path, new_path)
                 
 
 if __name__ == "__main__":
@@ -66,5 +84,9 @@ if __name__ == "__main__":
         "max_duration" : 25.0,
         "output_dir" : "/home/comp/Рабочий стол/vm"
     }
-    parse_vm(**cfg)
+    #parse_vm(**cfg)
     #print(get_usernames("/home/comp/Рабочий стол/export_tg/2.json"))
+    #del_spaces("/home/comp/Рабочий стол/vm2")
+    s = 'Gleb ㅤ_50830.wav'
+    new_s = re.sub(r'\W+', '_', s)
+    print(new_s)
