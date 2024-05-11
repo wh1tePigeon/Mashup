@@ -1,10 +1,16 @@
-import torch
-import torchaudio as ta
+"""
+In the desktop version of Telegram, open the chat from which you want to download voice messages.
+Click on the three dots in the upper right corner of the screen -> export chat history.
+Select "voice messages" and specify the format "json".
+In the configs, specify the path to the "voice_messages" folder and the "result.json" file
+On a Linux Mint system, they are usually saved in
+/home/<username>/.var/app/org.telegram.desktop/data/TelegramDesktop/tdata/temp_data/ChatExport_<date>
+"""
+
 import os
-import sys
 import json
 import re
-
+import torchaudio as ta
 
 def remove_non_litters(s: str) -> str:
     new_s = re.sub("[^A-Za-z0-9.]", "_", s)
@@ -42,7 +48,7 @@ def parse_vm(json_path: str, users_id: list, min_duration: float, max_duration: 
                             print("Saving " + output_name )
                             output_save_path = os.path.join(directory_save_file, output_name)
                             ta.save(output_save_path, voice_message, sample_rate=sr)
-                            
+
     return common_audio_length
 
 
@@ -85,7 +91,7 @@ def print_common_audio_length(common_audio_length, users):
 if __name__ == "__main__":
     cfg = {
         "json_path" : "/home/comp/Рабочий стол/export_tg/2.json",
-        "users_id" : ['Y G', 'Roman Romanovič', 'Gleb ㅤ'],
+        "users_id" : [],
         "min_duration" : 2.0,
         "max_duration" : 25.0,
         "output_dir" : "/home/comp/Рабочий стол/vm3"
