@@ -42,9 +42,7 @@ def parse_vm(json_path: str, users_id: list, min_duration: float, max_duration: 
                             print("Saving " + output_name )
                             output_save_path = os.path.join(directory_save_file, output_name)
                             ta.save(output_save_path, voice_message, sample_rate=sr)
-    
-    # for user, length in common_audio_length.items():
-    #     print(user + " - " + str(length))
+                            
     return common_audio_length
 
 
@@ -92,13 +90,6 @@ if __name__ == "__main__":
         "max_duration" : 25.0,
         "output_dir" : "/home/comp/Рабочий стол/vm3"
     }
-    #parse_vm(**cfg)
-    #users = get_users("/home/comp/Рабочий стол/export_tg/2.json")
-    users = get_users("/home/comp/Рабочий стол/export_tg/2.json")
+    users = get_users(cfg["json_path"])
     cfg["users_id"] = users.keys()
     parse_vm(**cfg)
-    #remove_non_litters_from_dir("/home/comp/Рабочий стол/vm2")
-    #s = 'Gleb_ㅤ_48948.wav'
-    #s = "Roman Romanovič_49169.wav"
-    #s = re.sub("[^A-Za-z0-9.]", "_", s)
-    #print(remove_non_litters(s))

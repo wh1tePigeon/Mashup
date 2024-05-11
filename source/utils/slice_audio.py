@@ -126,4 +126,4 @@ if __name__ == "__main__":
     }
     total_length_sec, ind, segments_less_than_min = slice(**cfg)
     print(total_length_sec)
-    process_small_segments("/home/comp/Рабочий стол/output", 2.0, segments_less_than_min, ind)
+    process_small_segments(cfg["ouput_dir"], 2.0, segments_less_than_min, ind)
