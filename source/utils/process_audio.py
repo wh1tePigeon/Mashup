@@ -9,7 +9,7 @@ from pydub import AudioSegment
 from tqdm import tqdm
 
 
-def load_n_process_audio(filepath, output_dir, sr) -> Tuple[torch.Tensor, str]:
+def load_n_process_audio(filepath, output_dir, sr, create_dir=True) -> Tuple[torch.Tensor, str]:
     assert os.path.exists(filepath)
 
     audio, fs = ta.load(filepath)
@@ -18,26 +18,34 @@ def load_n_process_audio(filepath, output_dir, sr) -> Tuple[torch.Tensor, str]:
 
     # resample
     if fs != sr:
-        print("Resampling")
+        print("Resampling " + filename)
         audio = ta.functional.resample(audio, fs, sr)
         filename += "_resampled"
         changed = True
     
     # make audio single channel
     if audio.shape[0] > 1:
-        print("Treat as monochannel")
+        print("Treat as monochannel " + filename)
         audio = torch.mean(audio, dim=0, keepdim=True)
         filename += "_mono"
         changed = True
 
     # save changed audio
     if changed:
-        directory_save_file = os.path.join(output_dir, filename)
-        os.makedirs(directory_save_file, exist_ok=True)
+        if create_dir:
+            directory_save_file = os.path.join(output_dir, filename)
+            os.makedirs(directory_save_file, exist_ok=True)
 
-        filename = filename + ".wav"
-        filepath = os.path.join(directory_save_file, filename)
-        ta.save(filepath, audio, sr)
+            filename = filename + ".wav"
+            filepath = os.path.join(directory_save_file, filename)
+            ta.save(filepath, audio, sr)
+        else:
+            os.makedirs(output_dir, exist_ok=True)
+            filename = filename + ".wav"
+            filepath = os.path.join(output_dir, filename)
+            ta.save(filepath, audio, sr)
+
+
     
     return [audio, filepath]
 
