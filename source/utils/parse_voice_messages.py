@@ -6,20 +6,26 @@ import json
 import re
 
 
-def parse_vm(json_path: str, usernames: list, min_duration: float, max_duration: float, output_dir: str):
+def remove_non_litters(s: str) -> str:
+    new_s = re.sub("[^A-Za-z0-9.]", "_", s)
+    new_s = re.sub(r'\s', '_', new_s)
+    return new_s
+
+
+def parse_vm(json_path: str, users_id: list, min_duration: float, max_duration: float, output_dir: str):
     assert os.path.exists(json_path)
     dirname = os.path.dirname(json_path)
 
-    common_audio_length = dict.fromkeys(usernames, 0)
+    common_audio_length = dict.fromkeys(users_id, 0)
 
     with open(json_path, 'r') as file:
         data = json.load(file)
         for message in data["messages"]:
-            if "from" in message:
-                username = message["from"]
+            if "from_id" in message:
+                user_id = message["from_id"]
                 if "media_type" in message:
                     media_type = message["media_type"]
-                    if username in usernames and media_type == "voice_message":
+                    if user_id in users and media_type == "voice_message":
                         duration = message["duration_seconds"]
                         if duration >= min_duration:
                             path_to_vm = os.path.join(dirname, message["file"])
@@ -27,66 +33,72 @@ def parse_vm(json_path: str, usernames: list, min_duration: float, max_duration:
                             voice_message = voice_message[:int(max_duration * sr)]
 
                             duration = min(duration, max_duration)
-                            common_audio_length[username] += duration
+                            common_audio_length[user_id] += duration
 
-                            directory_save_file = os.path.join(output_dir, username)
+                            directory_save_file = os.path.join(output_dir, user_id)
                             os.makedirs(directory_save_file, exist_ok=True)
 
-                            output_name = username + "_" + str(message["id"]) + ".wav"
+                            output_name = user_id + "_" + str(message["id"]) + ".wav"
                             print("Saving " + output_name )
                             output_save_path = os.path.join(directory_save_file, output_name)
                             ta.save(output_save_path, voice_message, sample_rate=sr)
     
-    for user, length in common_audio_length.items():
-        print(user + " - " + str(length))
+    # for user, length in common_audio_length.items():
+    #     print(user + " - " + str(length))
+    return common_audio_length
 
 
-def get_usernames(json_path: str, replace=True) -> list:
+def get_users(json_path: str, replace=True) -> list:
     assert os.path.exists(json_path)
 
-    users = set()
+    users = {}
 
     with open(json_path, 'r') as file:
         data = json.load(file)
         for message in data["messages"]:
-            if "from" in message:
-                user = message["from"]
-                #if replace:
-                #    user = re.sub(r'\s', '_', user)
-                users.add(user)
+            if "from_id" in message:
+                if message["from_id"] not in users:
+                    users[message["from_id"]] = message["from"]
     
     return users
 
 
-def del_spaces(dirpath: str):
+def remove_non_litters_from_dir(dirpath: str):
     for item in os.listdir(dirpath):
         path = os.path.join(dirpath, item)
         if os.path.isfile(path):
-            item = str(item)
-            new_name = '_'.join(item.split())
+            new_name = remove_non_litters(item)
             dirname = os.path.dirname(path)
             new_path = os.path.join(dirname, new_name)
             os.rename(path, new_path)
         elif os.path.isdir(path):
-            del_spaces(path)
-            #item = str(item)
-            new_name = '_'.join(item.split())
+            remove_non_litters_from_dir(path)
+            new_name = remove_non_litters(item)
             dirname = os.path.dirname(path)
             new_path = os.path.join(dirname, new_name)
             os.rename(path, new_path)
+
+        
+def print_common_audio_length(common_audio_length, users):
+    for id, name in users:
+        print(str(name) + " - " + str(common_audio_length[id]))
                 
 
 if __name__ == "__main__":
     cfg = {
         "json_path" : "/home/comp/Рабочий стол/export_tg/2.json",
-        "usernames" : ['Y G', 'Roman Romanovič', 'Gleb ㅤ'],
+        "users_id" : ['Y G', 'Roman Romanovič', 'Gleb ㅤ'],
         "min_duration" : 2.0,
         "max_duration" : 25.0,
-        "output_dir" : "/home/comp/Рабочий стол/vm"
+        "output_dir" : "/home/comp/Рабочий стол/vm3"
     }
     #parse_vm(**cfg)
-    #print(get_usernames("/home/comp/Рабочий стол/export_tg/2.json"))
-    del_spaces("/home/comp/Рабочий стол/vm2")
-    #s = 'Gleb ㅤ_50830.wav'
-    #new_s = re.sub(r'\W+', '_', s)
-    #print(new_s)
+    #users = get_users("/home/comp/Рабочий стол/export_tg/2.json")
+    users = get_users("/home/comp/Рабочий стол/export_tg/2.json")
+    cfg["users_id"] = users.keys()
+    parse_vm(**cfg)
+    #remove_non_litters_from_dir("/home/comp/Рабочий стол/vm2")
+    #s = 'Gleb_ㅤ_48948.wav'
+    #s = "Roman Romanovič_49169.wav"
+    #s = re.sub("[^A-Za-z0-9.]", "_", s)
+    #print(remove_non_litters(s))
