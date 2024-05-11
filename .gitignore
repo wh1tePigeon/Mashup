@@ -106,6 +106,7 @@ saved/
 wandb/
 *.hydra
 *.pth
+*.th
 *.ckpt
 *.wav
 #*.txt

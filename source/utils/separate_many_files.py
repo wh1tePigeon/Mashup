@@ -1,18 +1,16 @@
 import os
 import sys
-import torch
+import demucs.api
 import torchaudio as ta
 import pandas as pd
-from speechbrain.inference.VAD import VAD
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from source.utils.process_audio import load_n_process_audio
 from source.inference.cascaded.inference_cascaded import inference_cascaded
 
 
 def separate_with_cascaded(filepath, model_cfg):
     model_cfg["filepath"] = filepath
-    return inference_cascaded(model_cfg)
+    return inference_cascaded(repo=model_cfg["checkpoint_path"])
 
 
 def separate_with_bsrnn_music(filepath, model_cfg):
@@ -24,7 +22,18 @@ def separate_with_bsrnn_speech(filepath, model_cfg):
 
 
 def separate_with_hybdemucs(filepath, model_cfg):
-    raise NotImplementedError()
+    #model_cfg["filepath"] = filepath
+    audio, sr = ta.load(filepath)
+    if sr != 44100:
+        audio = ta.functional.resample(audio, sr, 44100)
+        sr = 44100
+    #separator = demucs.api.Separator(repo=Path(model_cfg["checkpoint_path"]))
+    separator = demucs.api.Separator()
+    origin, separated = separator.separate_tensor(audio)
+    vocal = separated["vocals"]
+    background = origin - vocal
+
+    return vocal, background, sr
 
 
 def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
@@ -33,6 +42,7 @@ def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
     if model_type not in model_types:
         raise KeyError
     
+    ouput_dir = os.path.join(ouput_dir, model_type)
     voice_dir = os.path.join(ouput_dir, "voice")
     background_dir = os.path.join(ouput_dir, "background")
     os.makedirs(voice_dir, exist_ok=True)
@@ -55,7 +65,7 @@ def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
                 voice, background, sr = separate_with_bsrnn_music(filepath, model_cfg)
             elif model_type == "bsrnn_speech":
                 voice, background, sr = separate_with_bsrnn_speech(filepath, model_cfg)
-            elif model_type == "bsrnn_music":
+            elif model_type == "hybdemucs":
                 voice, background, sr = separate_with_hybdemucs(filepath, model_cfg)
             
             voice_save_path = os.path.join(voice_dir, filename + "_voice.wav")
@@ -78,7 +88,7 @@ def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
 
 
 if __name__ == "__main__":
-    cfg = {
+    cfg_cascaded = {
         "dirpath" : "/home/comp/Рабочий стол/denoise",
         "ouput_dir" : "/home/comp/Рабочий стол/denoised",
         "model_type" : "cascaded",
@@ -94,4 +104,15 @@ if __name__ == "__main__":
         "postprocess" : False
     }
     }
-    separate(**cfg)
+
+    cfg_hybdemucs = {
+        "dirpath" : "/home/comp/Рабочий стол/denoise",
+        "ouput_dir" : "/home/comp/Рабочий стол/denoised",
+        "model_type" : "hybdemucs",
+        "model_cfg" :  {
+        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/htdemucs",
+        "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav"
+    }
+    }
+
+    separate(**cfg_hybdemucs)
