@@ -1,5 +1,6 @@
-# Adapted from https://github.com/ubisoft/ubisoft-laforge-daft-exprt Apache License Version 2.0
-# Unsupervised Domain Adaptation by Backpropagation
+"""
+https://github.com/ubisoft/ubisoft-laforge-daft-exprt/blob/master/src/daft_exprt/model.py
+"""
 
 import torch
 import torch.nn as nn

@@ -7,9 +7,9 @@ cascaded:
 vits:
   filepath:
   output_dir: "$ROOT/output/vits"
-  checkpoint_path: "$ROOT/checkpoints/vits/sovits5.0.pretrain.pth"
-  spk: "$ROOT/input/singer0001.npy"
-  ppg: "$ROOT/input/test.ppg.npy"
+  checkpoint_path: "$ROOT/checkpoints/vits/sovits5.0_0220.pt"
+  spk: "$ROOT/input/RR.spk.npy"
+  ppg: "$ROOT/input/govnovoz.ppg.npy"
   vec: ""
   pitch: ""
   shift: 0

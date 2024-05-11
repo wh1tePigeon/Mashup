@@ -1,3 +1,6 @@
+"""
+https://github.com/bshall/hubert/blob/main/hubert/model.py
+"""
 import copy
 import random
 from typing import Optional, Tuple

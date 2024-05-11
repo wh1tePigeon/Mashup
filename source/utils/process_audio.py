@@ -228,13 +228,22 @@ def concat_tracks(vocal_path, background_path, filename, output_dir):
 
 
 if __name__ == "__main__":
-    speech_path = "/home/comp/Рабочий стол/AutoDub/output/bsrnn/1_mono/1_mono_speech.wav"
-    background_path = "/home/comp/Рабочий стол/AutoDub/output/bsrnn/1_mono/1_mono_background.wav"
-    csv_filepath = "/home/comp/Рабочий стол/AutoDub/output/aligned_audio/1_mono_speech_resampled/1_mono_speech_resampled_asr_g_tr_wpaths_tts_wpaths.csv"
-    filename = "1_mono_speech_resampled"
-    output_dir = "/home/comp/Рабочий стол/AutoDub/output/final"
-    join_video = False
-    video_path = ""
+    # speech_path = "/home/comp/Рабочий стол/AutoDub/output/bsrnn/1_mono/1_mono_speech.wav"
+    # background_path = "/home/comp/Рабочий стол/AutoDub/output/bsrnn/1_mono/1_mono_background.wav"
+    # csv_filepath = "/home/comp/Рабочий стол/AutoDub/output/aligned_audio/1_mono_speech_resampled/1_mono_speech_resampled_asr_g_tr_wpaths_tts_wpaths.csv"
+    # filename = "1_mono_speech_resampled"
+    # output_dir = "/home/comp/Рабочий стол/AutoDub/output/final"
+    # join_video = False
+    # video_path = ""
 
-    concat_segments(speech_path, background_path, csv_filepath, filename,
-                    output_dir, join_video=False, video_path="")
+    # concat_segments(speech_path, background_path, csv_filepath, filename,
+    #                 output_dir, join_video=False, video_path="")
+
+    cfg = {
+        "vocal_path": "/home/comp/Загрузки/svc_out (4).wav",
+        "background_path": "/home/comp/Рабочий стол/Mashup/input/govnovoz_background.wav",
+        "filename": "govnovoz",
+        "output_dir": "/home/comp/Рабочий стол/Mashup/output/final"
+    }
+
+    concat_tracks(**cfg)

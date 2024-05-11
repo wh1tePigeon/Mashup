@@ -12,24 +12,24 @@ from source.utils.process_audio import concat_tracks
 FILEPATH = ""
 
 @hydra.main(config_path=str(CONFIGS_PATH), config_name="mashup")
-def dub(cfg):
-    if FILEPATH != "":
-        cfg["filepath"] = FILEPATH
-    elif cfg["filepath"] is None:
-        raise KeyError
-    else:
-        pass
+def mashup(cfg):
+    # if FILEPATH != "":
+    #     cfg["filepath"] = FILEPATH
+    # elif cfg["filepath"] is None:
+    #     raise KeyError
+    # else:
+    #     pass
     cfg = resolve_paths(cfg, os.environ['ROOT'])
-    assert os.path.exists(cfg["filepath"])
+    # assert os.path.exists(cfg["filepath"])
 
-    filename = cfg["filepath"].split(".")[0].split("/")[-1]
+    # filename = cfg["filepath"].split(".")[0].split("/")[-1]
 
-    print("Separating vocal")
-    cfg["cascaded"]["filepath"] = cfg["filepath"]
-    vocal_path, background_path = inference_cascaded(cfg["cascaded"])
-    # vocal_path = "/home/comp/Рабочий стол/Mashup/input/ramm_test_vocal.wav"
-    # filename = "ramm_test"
-    # background_path = "/home/comp/Рабочий стол/Mashup/input/ramm_test_background.wav"
+    # print("Separating vocal")
+    # cfg["cascaded"]["filepath"] = cfg["filepath"]
+    # vocal_path, background_path = inference_cascaded(cfg["cascaded"])
+    vocal_path = "/home/comp/Рабочий стол/Mashup/input/govnovoz_vocal.wav"
+    filename = "govnovoz"
+    background_path = "/home/comp/Рабочий стол/Mashup/input/govnovoz_background.wav"
     
     print("Converting vocal")
     cfg["vits"]["filepath"] = vocal_path
@@ -45,4 +45,4 @@ def dub(cfg):
 if __name__ == "__main__":
     os.environ['ROOT'] = os.getcwd()
 
-    dub()
+    mashup()

@@ -8,7 +8,6 @@ import math
 if 'sinc' in dir(torch):
     sinc = torch.sinc
 else:
-    # This code is adopted from adefossez's julius.core.sinc
     # https://adefossez.github.io/julius/julius/core.html
     def sinc(x: torch.Tensor):
         """
@@ -20,7 +19,6 @@ else:
                            torch.sin(math.pi * x) / math.pi / x)
 
 
-# This code is adopted from adefossez's julius.lowpass.LowPassFilters
 # https://adefossez.github.io/julius/julius/lowpass.html
 def kaiser_sinc_filter1d(cutoff, half_width, kernel_size): # return filter [1,1,kernel_size]
     even = (kernel_size % 2 == 0)
