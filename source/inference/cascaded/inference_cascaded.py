@@ -65,15 +65,19 @@ def inference_cascaded(cfg):
             postprocess=cfg["postprocess"]
         )
 
+        print("Separating " + filename)
         background_spec, vocal_spec = sp.separate(audio_spec)
 
         background = torch.from_numpy(spectrogram_to_wave(background_spec, hop_length=cfg["hop_length"]))
         vocal = torch.from_numpy(spectrogram_to_wave(vocal_spec, hop_length=cfg["hop_length"]))
 
-        ta.save(vocal_save_path, vocal, sample_rate=sr)
-        ta.save(background_save_path, background, sample_rate=sr)
+        if cfg["save"]:
+            ta.save(vocal_save_path, vocal, sample_rate=sr)
+            ta.save(background_save_path, background, sample_rate=sr)
 
-        return [vocal_save_path, background_save_path]
+            return [vocal_save_path, background_save_path, sr]
+        else:
+            return vocal, background, sr
 
 
 if __name__ == "__main__":

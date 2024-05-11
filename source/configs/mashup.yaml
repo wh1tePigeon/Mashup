@@ -3,6 +3,7 @@ filepath: "$ROOT/input/test2.mp4"
 cascaded:
   filepath:
   output_dir: "$ROOT/output/cascaded"
+  save: True
 
 vits:
   filepath:
