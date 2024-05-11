@@ -91,5 +91,4 @@ if __name__ == "__main__":
         "cropsize" : 256,
         "postprocess" : False
     }
-    print(torch.cuda.is_available())
-    #inference_cascaded(cfg)
+    inference_cascaded(cfg)

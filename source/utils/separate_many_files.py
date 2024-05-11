@@ -6,11 +6,12 @@ import pandas as pd
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.inference.cascaded.inference_cascaded import inference_cascaded
+from source.inference.bsrnn.inference_bsrnn import inference_bsrnn
 
 
 def separate_with_cascaded(filepath, model_cfg):
     model_cfg["filepath"] = filepath
-    return inference_cascaded(repo=model_cfg["checkpoint_path"])
+    return inference_cascaded(model_cfg)
 
 
 def separate_with_bsrnn_music(filepath, model_cfg):
@@ -18,7 +19,8 @@ def separate_with_bsrnn_music(filepath, model_cfg):
 
 
 def separate_with_bsrnn_speech(filepath, model_cfg):
-    raise NotImplementedError()
+    model_cfg["filepath"] = filepath
+    return inference_bsrnn(model_cfg)
 
 
 def separate_with_hybdemucs(filepath, model_cfg):
@@ -74,6 +76,9 @@ def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
             separated_voice_filepaths.append(voice_save_path)
             separated_background_filepaths.append(background_save_path)
 
+            print("Saving " + filename + "_voice.wav")
+            print("Saving " + filename + "_background.wav")
+
             ta.save(voice_save_path, voice, sr)
             ta.save(background_save_path, background, sr)
 
@@ -93,15 +98,15 @@ if __name__ == "__main__":
         "ouput_dir" : "/home/comp/Рабочий стол/denoised",
         "model_type" : "cascaded",
         "model_cfg" :  {
-        "save" : False,
-        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/cascaded/baseline.pth",
-        "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav",
-        "output_dir" : "/home/comp/Рабочий стол/Mashup/output",
-        "hop_length" : 1024,
-        "n_fft" : 2048,
-        "batchsize" : 4,
-        "cropsize" : 256,
-        "postprocess" : False
+            "save" : False,
+            "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/cascaded/baseline.pth",
+            "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav",
+            "output_dir" : "/home/comp/Рабочий стол/Mashup/output",
+            "hop_length" : 1024,
+            "n_fft" : 2048,
+            "batchsize" : 4,
+            "cropsize" : 256,
+            "postprocess" : False
     }
     }
 
@@ -110,9 +115,29 @@ if __name__ == "__main__":
         "ouput_dir" : "/home/comp/Рабочий стол/denoised",
         "model_type" : "hybdemucs",
         "model_cfg" :  {
-        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/htdemucs",
-        "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav"
+            "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/htdemucs",
+            "filepath" : "/home/comp/Рабочий стол/Mashup/input/test_2.wav"
     }
     }
 
-    separate(**cfg_hybdemucs)
+    cfg_bsrnn_speech = {
+        "dirpath" : "/home/comp/Рабочий стол/denoise",
+        "ouput_dir" : "/home/comp/Рабочий стол/denoised",
+        "model_type" : "bsrnn_speech",
+        "model_cfg" : {
+            "save" : False,
+            'n_gpu': 1,
+            'model': "/home/comp/Рабочий стол/Mashup/source/configs/bsrnn/arch/model_conf.yaml",
+            'sr': 44100,
+            'filepath': {},
+            'output_dir': "/home/comp/Рабочий стол/Mashup/output/bsrnn",
+            'checkpoint_path': "/home/comp/Рабочий стол/Mashup/checkpoints/bsrnn/main.pth",
+            'window_type': "hann",
+            'chunk_size_second': 6.0,
+            'hop_size_second': 0.5,
+            'batch_size': 6
+}
+
+    }
+
+    separate(**cfg_bsrnn_speech)

@@ -48,11 +48,13 @@ def inference_bsrnn(cfg):
                 
                 output = fader(audio,
                                 lambda a: forward(a))
+                speech = output["audio"]["speech"]
                 
             else:
                 output = forward(audio)
+                speech = output["speech"]
             
-            speech = output["audio"]["speech"]
+            
             speech = speech.reshape(1, -1)
             audio = audio.reshape(1, -1)
             background = audio - speech
@@ -68,10 +70,14 @@ def inference_bsrnn(cfg):
             speech = speech.to("cpu")
             background = background.to("cpu")
 
-            ta.save(speech_save_path, speech, sample_rate=sr)
-            ta.save(background_save_path, background, sample_rate=sr)
+            if cfg["save"]:
+                ta.save(speech_save_path, speech, sample_rate=sr)
+                ta.save(background_save_path, background, sample_rate=sr)
 
-            return [speech_save_path, background_save_path]
+                return [speech_save_path, background_save_path]
+            
+            else:
+                return speech, background, cfg["sr"]
 
 
 if __name__ == "__main__":
