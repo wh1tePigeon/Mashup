@@ -1,12 +1,12 @@
 import torch
 import pandas as pd
 from tqdm import tqdm
-from torch.nn.utils import clip_grad_norm_
 from source.base import BaseTrainer
 from source.utils import inf_loop, MetricTracker
 
 
 DEFAULT_SR = 16000
+
 
 class Trainer(BaseTrainer):
     """
