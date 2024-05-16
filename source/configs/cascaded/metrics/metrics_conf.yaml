@@ -1,0 +1,27 @@
+- _target_: source.metric.asr.wer_metric.WERMetric
+  name: WER (argmax)
+  inference_type: ctc_decode_enhanced
+  text_encoder: 
+    _target_: source.text_encoder.ctc_char_text_encoder.CTCCharTextEncoder
+    
+- _target_: source.metric.asr.cer_metric.CERMetric
+  name: CER (argmax)
+  inference_type: ctc_decode_enhanced
+  text_encoder: 
+    _target_: source.text_encoder.ctc_char_text_encoder.CTCCharTextEncoder
+
+- _target_: source.metric.asr.wer_metric.WERMetric
+  name: WER (beam_search)
+  only_val: true
+  inference_type: ctc_beam_search
+  beam_size: 5
+  text_encoder: 
+    _target_: source.text_encoder.ctc_char_text_encoder.CTCCharTextEncoder
+
+- _target_: source.metric.asr.cer_metric.CERMetric
+  name: CER (beam_search)
+  only_val: true
+  inference_type: ctc_beam_search
+  beam_size: 5
+  text_encoder: 
+    _target_: source.text_encoder.ctc_char_text_encoder.CTCCharTextEncoder
