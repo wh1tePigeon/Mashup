@@ -255,6 +255,82 @@ def get_oracle_data(X, y, oracle_loss, oracle_rate, oracle_drop_rate):
     return oracle_X, oracle_y, indices
 
 
+def get_trainset():
+    return 0
+
+
+def get_valset():
+    return 0
+
+
+def get_dataloaders(cfg):
+    train_cfg = cfg["train"]
+    val_cfg = cfg["val"]
+
+    val_filelist = []
+    train_filelist, val_filelist = train_val_split(
+        dataset_dir=cfg["dataset_dir"],
+        split_mode=cfg["split_mode"],
+        val_rate=cfg["val_rate"],
+        val_filelist=val_filelist
+    )
+
+    training_set = make_training_set(
+        filelist=train_filelist,
+        sr=cfg["sr"],
+        hop_length=cfg["hop_length"],
+        n_fft=cfg["n_fft"]
+    )
+
+    bins = cfg["n_fft"] // 2 + 1
+    freq_to_bin = 2 * bins / cfg["sr"]
+    unstable_bins = int(200 * freq_to_bin)
+    stable_bins = int(22050 * freq_to_bin)
+    reduction_weight = np.concatenate([
+        np.linspace(0, 1, unstable_bins, dtype=np.float32)[:, None],
+        np.linspace(1, 0, stable_bins - unstable_bins, dtype=np.float32)[:, None],
+        np.zeros((bins - stable_bins, 1), dtype=np.float32),
+    ], axis=0) * train_cfg["reduction_level"]
+
+    train_dataset = VocalRemoverTrainingSet(
+        training_set * train_cfg["patches"],
+        cropsize=train_cfg["cropsize"],
+        reduction_rate=train_cfg["reduction_rate"],
+        reduction_weight=reduction_weight,
+        mixup_rate=train_cfg["mixup_rate"],
+        mixup_alpha=train_cfg["mixup_alpha"]
+    )
+
+    patch_list = make_validation_set(
+        filelist=val_filelist,
+        cropsize=val_cfg["cropsize"],
+        sr=cfg["sr"],
+        hop_length=cfg["hop_length"],
+        n_fft=cfg["n_fft"],
+        offset=val_cfg["offset"]
+    )
+
+    val_dataset = VocalRemoverValidationSet(
+        patch_list=patch_list
+    )
+
+    train_dataloader = torch.utils.data.DataLoader(
+        dataset=train_dataset,
+        batch_size=train_cfg["batch_size"],
+        shuffle=train_cfg["shuffle"],
+        num_workers=train_cfg["num_workers"]
+    )
+
+    val_dataloader = torch.utils.data.DataLoader(
+        dataset=val_dataset,
+        batch_size=val_cfg["batch_size"],
+        shuffle=val_cfg["shuffle"],
+        num_workers=val_cfg["num_workers"]
+    )
+
+    return train_dataloader, val_dataloader
+
+
 if __name__ == "__main__":
     import sys
     import utils

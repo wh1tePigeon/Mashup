@@ -1,0 +1,25 @@
+dataset_dir: "/home/comp/Рабочий стол/cascaded_test"
+split_mode: "random"
+val_rate: 0.2
+sr: 44100
+hop_length: 1024
+n_fft: 2048
+
+train:
+  batch_size: 4
+  num_workers: 4
+  shuffle: True
+  patches: 16
+  cropsize: 256
+  reduction_rate: 0.0
+  reduction_level: 0.2
+  mixup_rate: 0.0
+  mixup_alpha: 1.0
+
+
+val:
+  batch_size: 32
+  num_workers: 16
+  shuffle: False
+  cropsize: 256
+  offset:

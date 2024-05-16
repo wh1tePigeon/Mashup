@@ -20,15 +20,19 @@ class Trainer(BaseTrainer):
             optimizer,
             config,
             device,
-            dataloaders,
+            log_step,
+            #dataloaders,
+            train_dataloader,
+            val_dataloader,
             lr_scheduler=None,
             len_epoch=None,
             skip_oom=True,
     ):
-        super().__init__(model, criterion, metrics, optimizer, config, device)
+        super().__init__(model, criterion, metrics, optimizer, lr_scheduler, config, device)
         self.skip_oom = skip_oom
         self.config = config
-        self.train_dataloader = dataloaders["train"]
+        self.train_dataloader = train_dataloader
+        self.evaluation_dataloaders = val_dataloader
 
         if len_epoch is None:
             # epoch-based training
@@ -38,9 +42,9 @@ class Trainer(BaseTrainer):
             self.train_dataloader = inf_loop(self.train_dataloader)
             self.len_epoch = len_epoch
         
-        self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
+        #self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
         self.lr_scheduler = lr_scheduler
-        self.log_step = 50
+        self.log_step = log_step
 
         self.train_metrics = MetricTracker(
             "loss", "grad norm", *[m.name for m in self.metrics], writer=self.writer
@@ -55,9 +59,11 @@ class Trainer(BaseTrainer):
         """
         Move all necessary tensors to the GPU
         """
-        for tensor_for_gpu in ["audio", "bonafied"]:
-            if tensor_for_gpu in batch:
-                batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
+        # for tensor_for_gpu in ["audio", "bonafied"]:
+        #     if tensor_for_gpu in batch:
+        #         batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
+        for tensor in batch:
+            tensor = tensor.to(device)
         return batch
 
     def _clip_grad_norm(self):
@@ -125,19 +131,20 @@ class Trainer(BaseTrainer):
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
 
-        mask = self.model(batch)
-        pred = batch * mask
-        batch["loss"] = self.criterion(pred, batch["bonafied"])
+        X, y = batch
+        mask = self.model(X)
+        pred = X * mask
+        loss = self.criterion(pred, y)
 
         if is_train:
             self.optimizer.zero_grad()
-            batch["loss"].backward()
+            loss.backward()
             self._clip_grad_norm()
             self.optimizer.step()
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
-        metrics.update("loss", batch["loss"].item())
+        metrics.update("loss", loss.item())
         return batch
 
     def _evaluation_epoch(self, epoch, part, dataloader):
