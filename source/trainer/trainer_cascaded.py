@@ -141,8 +141,8 @@ class Trainer(BaseTrainer):
             loss.backward()
             self._clip_grad_norm()
             self.optimizer.step()
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step()
+            #if self.lr_scheduler is not None:
+            #    self.lr_scheduler.step()
 
         metrics.update("loss", loss.item())
         return batch
@@ -156,8 +156,7 @@ class Trainer(BaseTrainer):
         """
         self.model.eval()
         self.evaluation_metrics.reset()
-        preds = []
-        targets = []
+
         with torch.no_grad():
             for batch_idx, batch in tqdm(
                     enumerate(dataloader),
@@ -169,15 +168,7 @@ class Trainer(BaseTrainer):
                     is_train=False,
                     metrics=self.evaluation_metrics,
                 )
-                preds.extend(list((batch["pred"].detach().cpu()[:, 1])))
-                targets.extend(list(batch["bonafied"].detach().cpu()))
 
-            preds = np.array(preds)
-            targets = np.array(targets)
-            
-            #eer, _ = compute_eer(preds[targets == 1], preds[targets == 0])
-            #self.writer.add_scalar("EER", eer)
-            #self.evaluation_metrics.update("EER", eer)
 
             self.writer.set_step(epoch * self.len_epoch, part)
             self._log_scalars(self.evaluation_metrics)
