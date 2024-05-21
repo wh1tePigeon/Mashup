@@ -1,0 +1,13 @@
+defaults:
+  - arch: model_conf
+  - dataset: data
+  - loss: loss_conf
+  - scheduler_g: scheduler_g
+  - scheduler_d: scheduler_d
+  - trainer: trainer_conf
+  - optimizer_g: optimizer_g
+  - optimizer_d: optimizer_d
+
+name: vits
+n_gpu: 1
+checkpoint:

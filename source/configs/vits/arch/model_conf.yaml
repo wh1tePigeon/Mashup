@@ -1,0 +1,10 @@
+_target_: source.model.deepspeech2.deep_speech.DeepSpeech2
+n_feats: 128
+n_class:
+rnn_type: "gru"
+n_rnn_layers: 5
+conv_out_channels: 32
+rnn_hidden_size: 512
+dropout_p: 0.1
+activation: "relu"
+debug: False

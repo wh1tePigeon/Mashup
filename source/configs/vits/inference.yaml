@@ -1,0 +1,9 @@
+defaults:
+  - arch: model_conf
+n_gpu: 1
+paths:
+ input: "/home/comp/Рабочий стол/AutoDub/output/vad/speech_resampled_mono/speech_resampled_mono.wav"
+ #input: "/home/comp/Рабочий стол/AutoDub/input/2.flac"
+ boundaries: "/home/comp/Рабочий стол/AutoDub/output/vad/speech_resampled_mono/speech_resampled_mono_boundaries.txt"
+ output: "/home/comp/Рабочий стол/AutoDub/output/asr/"
+ checkpoint: "/home/comp/Рабочий стол/AutoDub/checkpoints/asr/main.pth"
