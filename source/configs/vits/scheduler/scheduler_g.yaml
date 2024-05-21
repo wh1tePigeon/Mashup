@@ -1,2 +1,2 @@
-_target_: torch.optim.lr_scheduler.CosineAnnealingLR
-T_max: 16896
+_target_: torch.optim.lr_scheduler.ExponentialLR
+gamma: 0.999875

@@ -1,4 +1,4 @@
-_target_: source.model.deepspeech2.deep_speech.DeepSpeech2
+_target_: source.model.vits.synthesizer.SynthesizerTrn
 n_feats: 128
 n_class:
 rnn_type: "gru"
