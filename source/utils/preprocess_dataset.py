@@ -14,6 +14,7 @@ import torchcrepe
 from whisper import Whisper, ModelDimensions, pad_or_trim, log_mel_spectrogram
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.model.hubert.hubert import hubert_soft
+from source.model.spk_encoder.spk_encoder import LSTMSpeakerEncoder
 
 
 def process_dir_pitch(speaker_dirpath, output_dir, use_pyworld=True, use_crepe=False):
@@ -144,18 +145,29 @@ def process_dir_hubert(speaker_dirpath, output_dir, checkpoint_path):
                 np.save(savepath, units, allow_pickle=False)
 
 
-def process_dir_spk(speaker_dirpath, output_dir):
+def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path):
     assert os.path.exists(speaker_dirpath)
+
+    speakername = os.path.basename(os.path.normpath(speaker_dirpath))
+
+    for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Computing embds for speaker {speakername}'):
+        if filename.endswith(".wav"):
+            filepath = os.path.join(speaker_dirpath, filename)
+
+            audio, sr = librosa.load(filepath, sr=16000)
+            audio = audio / abs(audio).max() * 0.95
+            audio = torch.tensor(np.copy(audio))[None]
+
+            
+
 
 
 def process_dir_spk_average(speaker_dirpath, output_dir):
     assert os.path.exists(speaker_dirpath)
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
-
     count = 0
     average = 0
-
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Computing average embd for speaker {speakername}'):
         if filename.endswith(".npy"):
             filepath = os.path.join(speaker_dirpath, filename)
@@ -305,6 +317,10 @@ if __name__ == "__main__":
                 "filter_length" : 1024,
                 "hop_length" : 320,
                 "win_length" : 1024 
+            },
+            "spk_enc" : {
+                "checkpoint_path" : "",
+
             }
         }
     }
