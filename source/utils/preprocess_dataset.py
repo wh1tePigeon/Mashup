@@ -158,7 +158,7 @@ def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path):
             audio = audio / abs(audio).max() * 0.95
             audio = torch.tensor(np.copy(audio))[None]
 
-            
+
 
 
 
@@ -287,18 +287,6 @@ def process_dir(dirpath, output_dir, model_cfgs):
             #process_dir_specs(sr32k_savepaths, spec_savepath, model_cfgs["spec"])
 
 
-            # for filename in os.listdir(speakerdir):
-            #     if filename.endswith(".wav"):
-            #         filepath = os.path.join(speakerdir, filename)
-            #         filename = filename[:-4]
-
-
-
-
-
-
-
-
 if __name__ == "__main__":
     cfg = {
         "dirpath" : "/home/comp/Рабочий стол/dataset/",
@@ -326,13 +314,3 @@ if __name__ == "__main__":
     }
 
     process_dir(**cfg)
-
-    # path1 = "/home/comp/Рабочий стол/Mashup/output/dataset/whisper/RR/Roman_Romanovič_49144_ppg.npy"
-    # path2 = "/home/comp/Загрузки/Roman_Romanovič_49144.ppg.npy"
-
-    # arr1 = np.load(path1)
-    # arr2 = np.load(path2)
-
-    # print(arr1)
-    # print("----------------")
-    # print(arr2)
