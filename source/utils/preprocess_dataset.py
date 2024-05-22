@@ -14,7 +14,9 @@ import torchcrepe
 from whisper import Whisper, ModelDimensions, pad_or_trim, log_mel_spectrogram
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.model.hubert.hubert import hubert_soft
-from source.model.spk_encoder.spk_encoder import LSTMSpeakerEncoder
+import json
+from TTS.tts.utils.speakers import SpeakerManager
+from TTS.utils.audio import AudioProcessor
 
 
 def process_dir_pitch(speaker_dirpath, output_dir, use_pyworld=True, use_crepe=False):
@@ -145,7 +147,7 @@ def process_dir_hubert(speaker_dirpath, output_dir, checkpoint_path):
                 np.save(savepath, units, allow_pickle=False)
 
 
-def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path):
+def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path, cfg_path):
     assert os.path.exists(speaker_dirpath)
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
@@ -154,11 +156,20 @@ def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path):
         if filename.endswith(".wav"):
             filepath = os.path.join(speaker_dirpath, filename)
 
-            audio, sr = librosa.load(filepath, sr=16000)
-            audio = audio / abs(audio).max() * 0.95
-            audio = torch.tensor(np.copy(audio))[None]
+            manager = SpeakerManager(encoder_model_path=checkpoint_path, encoder_config_path=cfg_path)
+            with open(cfg_path, 'r') as file:
+                cfg = json.load(file)
 
+            ap = AudioProcessor(**cfg["audio"])
+            ap.do_sound_norm = True
+            
+            waveform = ap.load_wav(filepath)
+            mel = ap.melspectrogram(waveform)
+            embd = manager.compute_embeddings(mel.T)
 
+            filename = filename[:-4]
+            savepath = os.path.join(output_dir, (filename + "_spk"))
+            np.save(savepath, embd, allow_pickle=False)
 
 
 
@@ -179,7 +190,7 @@ def process_dir_spk_average(speaker_dirpath, output_dir):
 
     if count > 0:
         average = average / count
-        savepath = os.path.join(output_dir, speakername )
+        savepath = os.path.join(output_dir, speakername)
         np.save(savepath, average, allow_pickle=False)
     
 
@@ -281,7 +292,7 @@ def process_dir(dirpath, output_dir, model_cfgs):
             #process_dir_pitch(speakerdir, pit_savepath)
             #process_dir_whisper(speakerdir, whisper_savepath, **model_cfgs["whisper"])
             #process_dir_hubert(speakerdir, hubert_savepath, **model_cfgs["hubert"])
-            process_dir_spk(speakerdir, spk_savepath)
+            process_dir_spk(speakerdir, spk_savepath, **model_cfgs["spk_enc"])
             #process_dir_spk_average(spk_savepath, spk_average_savepath)
             #process_dir_sr32k(speakerdir, sr32k_savepaths)
             #process_dir_specs(sr32k_savepaths, spec_savepath, model_cfgs["spec"])
@@ -307,8 +318,8 @@ if __name__ == "__main__":
                 "win_length" : 1024 
             },
             "spk_enc" : {
-                "checkpoint_path" : "",
-
+                "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/speaker/best_model.pth.tar",
+                "cfg_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/speaker/cfg_nc.json"
             }
         }
     }

@@ -37,4 +37,5 @@ wandb
 faiss-cpu
 faiss-gpu
 demucs
+TTS
 #python3 -m pip install -U git+https://github.com/facebookresearch/demucs#egg=demucs
