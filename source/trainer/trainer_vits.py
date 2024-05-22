@@ -57,7 +57,7 @@ class Trainer(BaseTrainer):
 
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "MPDs grad_norm", "MSD grad_norm")
-        self.evaluation_metrics = []#MetricTracker(*self.loss_names)
+        self.evaluation_metrics = [] #MetricTracker(*self.loss_names)
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
         """
