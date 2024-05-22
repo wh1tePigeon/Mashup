@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 
@@ -126,61 +127,83 @@ class MultiResolutionSTFTLoss(torch.nn.Module):
         return sc_loss, mag_loss
     
 
-def feature_loss(fmap_r, fmap_g):
-    loss = 0
-    for dr, dg in zip(fmap_r, fmap_g):
-        for rl, gl in zip(dr, dg):
-            rl = rl.float().detach()
-            gl = gl.float()
-            loss += torch.mean(torch.abs(rl - gl))
+class VitsLoss():
+    def __init__(self, device, resolutions):
+        self.stft_loss = MultiResolutionSTFTLoss(device, resolutions)
+        self.spk_loss = nn.CosineEmbeddingLoss()
+        self.l1 = F.l1_loss()
 
-    return loss * 2
+    #def feature_loss(fmap_r, fmap_g):
+        # loss = 0
+        # for dr, dg in zip(fmap_r, fmap_g):
+        #     for rl, gl in zip(dr, dg):
+        #         rl = rl.float().detach()
+        #         gl = gl.float()
+        #         loss += torch.mean(torch.abs(rl - gl))
 
-
-def discriminator_loss(disc_real_outputs, disc_generated_outputs):
-    loss = 0
-    r_losses = []
-    g_losses = []
-    for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
-        dr = dr.float()
-        dg = dg.float()
-        r_loss = torch.mean((1 - dr) ** 2)
-        g_loss = torch.mean(dg**2)
-        loss += r_loss + g_loss
-        r_losses.append(r_loss.item())
-        g_losses.append(g_loss.item())
-
-    return loss, r_losses, g_losses
-
-
-def generator_loss(disc_outputs):
-    loss = 0
-    gen_losses = []
-    for dg in disc_outputs:
-        dg = dg.float()
-        l = torch.mean((1 - dg) ** 2)
-        gen_losses.append(l)
-        loss += l
-
-    return loss, gen_losses
+        # #return loss * 2
+        # loss = feat_loss / len(disc_fake)
+        # return loss
+    def feature_loss(disc_fake, disc_real):
+        feat_loss = 0.0
+        for (feat_fake, _), (feat_real, _) in zip(disc_fake, disc_real):
+            for fake, real in zip(feat_fake, feat_real):
+                feat_loss += torch.mean(torch.abs(fake - real))
+        feat_loss = feat_loss / len(disc_fake)
+        feat_loss = feat_loss * 2
 
 
-def kl_loss(z_p, logs_q, m_p, logs_p, total_logdet, z_mask):
-    """
-    z_p, logs_q: [b, h, t_t]
-    m_p, logs_p: [b, h, t_t]
-    total_logdet: [b] - total_logdet summed over each batch
-    """
-    z_p = z_p.float()
-    logs_q = logs_q.float()
-    m_p = m_p.float()
-    logs_p = logs_p.float()
-    z_mask = z_mask.float()
+    def discriminator_loss(disc_real, disc_fake):
+        # loss = 0
+        # r_losses = []
+        # g_losses = []
+        # for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
+        #     dr = dr.float()
+        #     dg = dg.float()
+        #     r_loss = torch.mean((1 - dr) ** 2)
+        #     g_loss = torch.mean(dg**2)
+        #     loss += r_loss + g_loss
+        #     r_losses.append(r_loss.item())
+        #     g_losses.append(g_loss.item())
 
-    kl = logs_p - logs_q - 0.5
-    kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2.0 * logs_p)
-    kl = torch.sum(kl * z_mask)
-    # add total_logdet (Negative LL)
-    kl -= torch.sum(total_logdet)
-    l = kl / torch.sum(z_mask)
-    return l
+        # return loss, r_losses, g_losses
+
+        loss_d = 0.0
+        for (_, score_fake), (_, score_real) in zip(disc_fake, disc_real):
+            loss_d += torch.mean(torch.pow(score_real - 1.0, 2))
+            loss_d += torch.mean(torch.pow(score_fake, 2))
+        loss_d = loss_d / len(disc_fake)
+        return loss_d
+
+
+    def generator_loss(disc_outputs):
+        loss = 0
+        gen_losses = []
+        for dg in disc_outputs:
+            dg = dg.float()
+            l = torch.mean((1 - dg) ** 2)
+            gen_losses.append(l)
+            loss += l
+
+        return loss, gen_losses
+
+
+    def kl_loss(z_p, logs_q, m_p, logs_p, total_logdet, z_mask):
+        """
+        z_p, logs_q: [b, h, t_t]
+        m_p, logs_p: [b, h, t_t]
+        total_logdet: [b] - total_logdet summed over each batch
+        """
+        z_p = z_p.float()
+        logs_q = logs_q.float()
+        m_p = m_p.float()
+        logs_p = logs_p.float()
+        z_mask = z_mask.float()
+
+        kl = logs_p - logs_q - 0.5
+        kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2.0 * logs_p)
+        kl = torch.sum(kl * z_mask)
+        # add total_logdet (Negative LL)
+        kl -= torch.sum(total_logdet)
+        l = kl / torch.sum(z_mask)
+        return l

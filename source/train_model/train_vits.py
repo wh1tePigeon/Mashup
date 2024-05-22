@@ -33,37 +33,41 @@ def train(cfg: DictConfig):
     train_dataloader = create_dataloader_train(cfg["data"], cfg["n_gpu"], 0)
     val_dataloader = create_dataloader_eval(cfg["data"])
 
-    model = instantiate(cfg["arch"])
+    gen = instantiate(cfg["arch"]["gen"])
+    disc = instantiate(cfg["arch"]["disc"])
     logger = get_logger("train")
-    logger.info(model)
+    logger.info(gen)
 
     # prepare for (multi-device) GPU training
     device, device_ids = prepare_device(cfg["n_gpu"])
-    model = model.to(device)
+    gen = gen.to(device)
+    disc = disc.to(device)
     if len(device_ids) > 1:
-        model = torch.nn.DataParallel(model, device_ids=device_ids)
+        gen = torch.nn.DataParallel(gen, device_ids=device_ids)
+        disc = torch.nn.DataParallel(disc, device_ids=device_ids)
 
     # get function handles of loss and metrics
-    # loss_module = instantiate(cfg["loss"]).to(device)
+    loss_module = instantiate(cfg["loss"]).to(device)
     metrics = []
 
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
 
-    gen_trainable_params = filter(lambda p: p.requires_grad, model.gen.parameters())
+    gen_trainable_params = filter(lambda p: p.requires_grad, gen.parameters())
     gen_optimizer = instantiate(cfg["optimizer_g"], torch.optim, gen_trainable_params)
     gen_lr_scheduler = instantiate(cfg["scheduler_g"], torch.optim.lr_scheduler, gen_optimizer)
-    logger.info(f"Generator params count: {get_params_count(model.gen)}")
+    logger.info(f"Generator params count: {get_params_count(gen)}")
 
-    disc_trainable_params = list(model.msd.parameters()) + list(model.mpds.parameters())
+    disc_trainable_params = list(disc.msd.parameters()) + list(disc.mpds.parameters())
     disc_optimizer = instantiate(cfg["optimizer_d"], torch.optim, disc_trainable_params)
     disc_lr_scheduler = instantiate(cfg["scheduler_d"], torch.optim.lr_scheduler, disc_optimizer)
-    logger.info(f"MPDs params count: {get_params_count(model.mpds)}")
-    logger.info(f"MSD params count: {get_params_count(model.msd)}")
+    logger.info(f"MPDs params count: {get_params_count(disc.mpds)}")
+    logger.info(f"MSD params count: {get_params_count(disc.msd)}")
 
     trainer = Trainer(
-        model,
-        None,
+        gen,
+        disc,
+        loss_module,
         metrics,
         gen_optimizer,
         disc_optimizer,

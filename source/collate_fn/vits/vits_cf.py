@@ -68,14 +68,16 @@ class TextAudioSpeakerCollate:
         # print(spe_lengths.shape)
         # print(wav_padded.shape)
         # print(wav_lengths.shape)
-        return (
-            ppg_padded,
-            ppg_lengths,
-            vec_padded,
-            pit_padded,
-            spk,
-            spe_padded,
-            spe_lengths,
-            wav_padded,
-            wav_lengths,
-        )
+        result = {
+            "ppg" : ppg_padded,
+            "ppg_l" : ppg_lengths,
+            "vec" : vec_padded,
+            "pit" : pit_padded,
+            "spk" : spk,
+            "spec" : spe_padded,
+            "spec_l" : spe_lengths,
+            "audio" : wav_padded,
+            "audio_l" : wav_lengths
+        }
+
+        return result

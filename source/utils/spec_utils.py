@@ -1,8 +1,51 @@
 import os
-
+import torch
 import librosa
 import numpy as np
 import soundfile as sf
+from librosa.filters import mel as librosa_mel_fn
+
+
+def mel_spectrogram(cfg, y):
+    def spectral_normalize_torch(magnitudes):
+        output = dynamic_range_compression_torch(magnitudes)
+        return output
+
+    def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
+        return torch.log(torch.clamp(x, min=clip_val) * C)
+
+    """Computes mel-spectrograms from a batch of waves
+    PARAMS
+    ------
+    y: Variable(torch.FloatTensor) with shape (B, T) in range [-1, 1]
+
+    RETURNS
+    -------
+    mel_output: torch.FloatTensor of shape (B, n_mel_channels, T)
+    """
+    assert(torch.min(y.data) >= -1)
+    assert(torch.max(y.data) <= 1)
+    mel = librosa_mel_fn(
+            sr=cfg["sr"], n_fft=cfg["n_fft"], n_mels=cfg["n_mels"], fmin=cfg["fmin"], fmax=cfg["fmin"])
+
+    mel_basis = torch.from_numpy(mel).float().to(cfg["device"])
+
+    hann_window = torch.hann_window(cfg["win_length"]).to(cfg["device"])
+
+    y = torch.nn.functional.pad(y.unsqueeze(1),
+                                (int((cfg["n_fft"] - cfg["hop_size"]) / 2), int((cfg["n_fft"] - cfg["hop_size"]) / 2)),
+                                mode='reflect')
+    y = y.squeeze(1)
+
+    spec = torch.stft(y, cfg["n_fft"], hop_length=cfg["hop_size"], win_length=cfg["win_length"], window=hann_window,
+                        center=cfg["center"], pad_mode=cfg["pad_mode"], normalized=False, onesided=True, return_complex=False)
+
+    spec = torch.sqrt(spec.pow(2).sum(-1) + (1e-9))
+
+    spec = torch.matmul(mel_basis, spec)
+    spec = spectral_normalize_torch(spec)
+
+    return spec
 
 
 def crop_center(h1, h2):

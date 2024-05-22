@@ -1,11 +1,14 @@
+import sys
 import torch
+import torch.nn as nn
 import pandas as pd
 from tqdm import tqdm
 from source.base import BaseTrainer
 from source.utils import inf_loop, MetricTracker
-
-
-DEFAULT_SR = 16000
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from source.model.vits.modules.commons import slice_segments
+from source.utils.spec_utils import mel_spectrogram
 
 
 class Trainer(BaseTrainer):
@@ -15,12 +18,13 @@ class Trainer(BaseTrainer):
 
     def __init__(
         self,
-        model,
+        gen,
+        disc,
         criterion,
         metrics,
         gen_optimizer,
         disc_optimizer,
-        config,
+        cfg,
         device,
         train_dataloader,
         val_dataloader,
@@ -29,9 +33,9 @@ class Trainer(BaseTrainer):
         len_epoch=None,
         skip_oom=True,
     ):
-        super().__init__(model, criterion, metrics, None, None, config, device)
+        super().__init__(gen, criterion, metrics, None, None, cfg, device)
         self.skip_oom = skip_oom
-        self.config = config
+        self.cfg = cfg
 
         self.gen_optimizer = gen_optimizer
         self.disc_optimizer = disc_optimizer
@@ -41,6 +45,8 @@ class Trainer(BaseTrainer):
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
 
+        self.disc = disc
+
         if len_epoch is None:
             # epoch-based training
             self.len_epoch = len(self.train_dataloader)
@@ -49,9 +55,9 @@ class Trainer(BaseTrainer):
             self.train_dataloader = inf_loop(self.train_dataloader)
             self.len_epoch = len_epoch
 
-        self.loss_names = ["disc_loss", "gen_loss", "loss_adv", "loss_fm", "loss_mel"]
+        self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "MPDs grad_norm", "MSD grad_norm")
-        self.evaluation_metrics = MetricTracker(*self.loss_names)
+        self.evaluation_metrics = []#MetricTracker(*self.loss_names)
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
         """
@@ -82,52 +88,108 @@ class Trainer(BaseTrainer):
         """
         Move all necessary tensors to the GPU
         """
-        for tensor_for_gpu in ["target", "mel"]:
+        for tensor_for_gpu in ["ppg", "ppg_l", "vec", "pit", "spk", "spec", "spec_l", "audio", "audio_l"]:
             batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
         return batch
 
-    @torch.no_grad()
-    def _log_predictions(self, pred, target, examples_to_log=3, **kwargs):
-        rows = {}
-        i = 0
-        for pred, target in zip(pred, target):
-            if i >= examples_to_log:
-                break
-            rows[i] = {
-                "pred": self.writer.wandb.Audio(pred.cpu().squeeze().numpy(), sample_rate=DEFAULT_SR),
-                "target": self.writer.wandb.Audio(target.cpu().squeeze().numpy(), sample_rate=DEFAULT_SR),
-            }
-            i += 1
+    # @torch.no_grad()
+    # def _log_predictions(self, pred, target, examples_to_log=3, **kwargs):
+    #     rows = {}
+    #     i = 0
+    #     for pred, target in zip(pred, target):
+    #         if i >= examples_to_log:
+    #             break
+    #         rows[i] = {
+    #             "pred": self.writer.wandb.Audio(pred.cpu().squeeze().numpy(), sample_rate=DEFAULT_SR),
+    #             "target": self.writer.wandb.Audio(target.cpu().squeeze().numpy(), sample_rate=DEFAULT_SR),
+    #         }
+    #         i += 1
 
-        self.writer.add_table("logs", pd.DataFrame.from_dict(rows, orient="index"))
+    #     self.writer.add_table("logs", pd.DataFrame.from_dict(rows, orient="index"))
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
-        out = self.model(**batch)
-        batch.update(out)
-
+        ppg, ppg_l, vec, pit, spk, spec, spec_l, audio, audio_l = batch
         if is_train:
+            # generator
+            fake_audio, ids_slice, z_mask, \
+                (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
+                    ppg, vec, pit, spec, spk, ppg_l, spec_l)
+
+            audio = slice_segments(
+                audio, ids_slice * self.cfg["data"]["hop_length"], self.cfg["data"]["segment_size"])  # slice
+            # Spk Loss
+            batch["spk_loss"] = self.criterion.spk_loss(spk, spk_preds, torch.Tensor(spk_preds.size(0))
+                                .to(self.device).fill_(1.0))
+            # Mel Loss
+            mel_fake = mel_spectrogram(self.cfg["mel"], fake_audio.squeeze(1))
+            mel_real = mel_spectrogram(self.cfg["mel"], audio.squeeze(1))
+            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg["train"]["c_mel"]
+
+            # Multi-Resolution STFT Loss
+            sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
+            batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg["train"]["c_stft"]
+
+            # Generator Loss
+            disc_fake = self.disc(fake_audio)
+            batch["gen_loss"], _ = self.criterion.generator_loss(disc_fake)
+
+            # Feature Loss
+            disc_real = self.disc(audio)
+            batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
+
+            # Kl Loss
+            batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg["train"]["c_kl"]
+            batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg["train"]["c_kl"]
+
+            # Loss
+            batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
+                batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
+            batch["loss_g"].backward()
+            #loss_g = gen_loss + feat_loss + mel_loss + stft_loss + loss_kl_f + loss_kl_r * 0.5 + spk_loss * 2
+            #loss_g.backward()
+
+            if ((step + 1) % self.cfg["train"]["accum_step"] == 0) or (step + 1 == len(loader)):
+                # accumulate gradients for accum steps
+                for param in self.model.parameters():
+                    param.grad /= self.cfg["train"]["accum_step"]
+                self._clip_grad_norm(self.model)
+                # update model
+                self.gen_optimizer.step()
+                self.gen_optimizer.zero_grad()
+
             # discriminator
             self.disc_optimizer.zero_grad()
-            batch.update(self.model.disc_forward(batch["pred"].detach(), batch["target"]))
-            disc_loss = self.criterion.disc(**batch)
-            batch.update(disc_loss)
-            batch["disc_loss"].backward()
-            self._clip_grad_norm(self.model.mpds)
-            self._clip_grad_norm(self.model.msd)
-            self.disc_optimizer.step()
-            self.train_metrics.update("MPDs grad_norm", self.get_grad_norm(self.model.mpds))
-            self.train_metrics.update("MSD grad_norm", self.get_grad_norm(self.model.msd))
+            disc_fake = self.disc(fake_audio.detach())
+            disc_real = self.disc(audio)
 
-            # generator
-            batch.update(self.model.disc_forward(**batch))
-            self.gen_optimizer.zero_grad()
-            gen_loss = self.criterion.gen(**batch)
-            batch.update(gen_loss)
-            batch["gen_loss"].backward()
-            self._clip_grad_norm(self.model.gen)
-            self.gen_optimizer.step()
-            self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model.gen))
+            batch["disc_loss"] = self.criterion.discriminator_loss(disc_real, disc_fake)
+            batch["disc_loss"].backward()
+            self._clip_grad_norm(self.disc)
+            self.disc_optimizer.step()
+
+
+            # # discriminator
+            # self.disc_optimizer.zero_grad()
+            # batch.update(self.model.disc_forward(batch["pred"].detach(), batch["target"]))
+            # disc_loss = self.criterion.disc(**batch)
+            # batch.update(disc_loss)
+            # batch["disc_loss"].backward()
+            # self._clip_grad_norm(self.model.mpds)
+            # self._clip_grad_norm(self.model.msd)
+            # self.disc_optimizer.step()
+            # self.train_metrics.update("MPDs grad_norm", self.get_grad_norm(self.model.mpds))
+            # self.train_metrics.update("MSD grad_norm", self.get_grad_norm(self.model.msd))
+
+            # # generator
+            # batch.update(self.model.disc_forward(**batch))
+            # self.gen_optimizer.zero_grad()
+            # gen_loss = self.criterion.gen(**batch)
+            # batch.update(gen_loss)
+            # batch["gen_loss"].backward()
+            # self._clip_grad_norm(self.model.gen)
+            # self.gen_optimizer.step()
+            # self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model.gen))
 
             for loss_name in self.loss_names:
                 metrics.update(loss_name, batch[loss_name].item())
