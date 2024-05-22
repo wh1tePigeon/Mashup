@@ -22,7 +22,8 @@ class Trainer(BaseTrainer):
         disc_optimizer,
         config,
         device,
-        dataloaders,
+        train_dataloader,
+        val_dataloader,
         gen_lr_scheduler,
         disc_lr_scheduler,
         len_epoch=None,
@@ -37,7 +38,9 @@ class Trainer(BaseTrainer):
         self.gen_lr_scheduler = gen_lr_scheduler
         self.disc_lr_scheduler = disc_lr_scheduler
 
-        self.train_dataloader = dataloaders["train"]
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
+
         if len_epoch is None:
             # epoch-based training
             self.len_epoch = len(self.train_dataloader)
@@ -45,8 +48,6 @@ class Trainer(BaseTrainer):
             # iteration-based training
             self.train_dataloader = inf_loop(self.train_dataloader)
             self.len_epoch = len_epoch
-
-        self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
 
         self.loss_names = ["disc_loss", "gen_loss", "loss_adv", "loss_fm", "loss_mel"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "MPDs grad_norm", "MSD grad_norm")

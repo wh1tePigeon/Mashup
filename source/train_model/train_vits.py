@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from source.trainer.trainer_vits import Trainer
+from source.datasets.vits.vits_dataloaders import create_dataloader_train, create_dataloader_eval
 from source.utils.util import get_logger, prepare_device, CONFIGS_PATH
 from source.utils.object_loading import get_dataloaders
 
@@ -29,7 +30,8 @@ def get_params_count(model_):
 
 @hydra.main(config_path=str(CONFIG_VITS_PATH), config_name="main")
 def train(cfg: DictConfig):
-    dataloaders = get_dataloaders(cfg["dataset"])
+    train_dataloader = create_dataloader_train(cfg["data"], cfg["n_gpu"], 0)
+    val_dataloader = create_dataloader_eval(cfg["data"])
 
     model = instantiate(cfg["arch"])
     logger = get_logger("train")
@@ -42,36 +44,33 @@ def train(cfg: DictConfig):
         model = torch.nn.DataParallel(model, device_ids=device_ids)
 
     # get function handles of loss and metrics
-    loss_module = instantiate(cfg["loss"]).to(device)
-    metrics = [
-        instantiate(m) for m in cfg["metrics"]
-        #config.init_obj(metric_dict, module_metric, text_encoder=text_encoder)
-        #for metric_dict in config["metrics"]
-    ]
+    # loss_module = instantiate(cfg["loss"]).to(device)
+    metrics = []
 
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
 
     gen_trainable_params = filter(lambda p: p.requires_grad, model.gen.parameters())
-    gen_optimizer = instantiate(cfg["gen_optimizer"], torch.optim, gen_trainable_params)
-    gen_lr_scheduler = instantiate(cfg["gen_lr_scheduler"], torch.optim.lr_scheduler, gen_optimizer)
+    gen_optimizer = instantiate(cfg["optimizer_g"], torch.optim, gen_trainable_params)
+    gen_lr_scheduler = instantiate(cfg["scheduler_g"], torch.optim.lr_scheduler, gen_optimizer)
     logger.info(f"Generator params count: {get_params_count(model.gen)}")
 
     disc_trainable_params = list(model.msd.parameters()) + list(model.mpds.parameters())
-    disc_optimizer = instantiate(cfg["disc_optimizer"], torch.optim, disc_trainable_params)
-    disc_lr_scheduler = instantiate(cfg["disc_lr_scheduler"], torch.optim.lr_scheduler, disc_optimizer)
+    disc_optimizer = instantiate(cfg["optimizer_d"], torch.optim, disc_trainable_params)
+    disc_lr_scheduler = instantiate(cfg["scheduler_d"], torch.optim.lr_scheduler, disc_optimizer)
     logger.info(f"MPDs params count: {get_params_count(model.mpds)}")
     logger.info(f"MSD params count: {get_params_count(model.msd)}")
 
     trainer = Trainer(
         model,
-        loss_module,
+        None,
         metrics,
         gen_optimizer,
         disc_optimizer,
         config=cfg,
         device=device,
-        dataloaders=dataloaders,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
         gen_lr_scheduler=gen_lr_scheduler,
         disc_lr_scheduler=disc_lr_scheduler,
         len_epoch=cfg["trainer"].get("len_epoch", None),
