@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import os
 import sys
 from pathlib import Path
-from typing import Tuple
+import random
 import pandas as pd
 from tqdm import tqdm
 import librosa
@@ -187,15 +187,17 @@ def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path, cfg_path):
         if filename.endswith(".wav"):
             filepath = os.path.join(speaker_dirpath, filename)
             
-            waveform = ap.load_wav(filepath, sr=ap.sample_rate)
-            mel = ap.melspectrogram(waveform)
-            spec = torch.from_numpy(mel.T)
-            if torch.cuda.is_available():
-                spec = spec.cuda()
+            # waveform = ap.load_wav(filepath, sr=ap.sample_rate)
+            # mel = ap.melspectrogram(waveform)
+            # spec = torch.from_numpy(mel.T)
+            # if torch.cuda.is_available():
+            #     spec = spec.cuda()
 
-            spec = spec.unsqueeze(0)
-            embd = speaker_encoder.compute_embedding(spec).detach().cpu().numpy()
-            embd = embd.squeeze()
+            # spec = spec.unsqueeze(0)
+            # embd = speaker_encoder.compute_embedding(spec).detach().cpu().numpy()
+            # embd = embd.squeeze()
+
+            embd = np.array(0)
 
             filename = filename[:-4]
             savepath = os.path.join(output_dir, (filename + "_spk"))
@@ -313,6 +315,8 @@ def process_dir(dirpath, output_dir, model_cfgs):
     spks_path = os.path.join(output_dir, "spks")
     spks_average = os.path.join(output_dir, "spks_average")
     sr32k_paths = os.path.join(output_dir, "sr32k")
+
+    common = []
     
     for speakername in os.listdir(dirpath):
         speakerdir = os.path.join(dirpath, speakername)
@@ -336,11 +340,36 @@ def process_dir(dirpath, output_dir, model_cfgs):
             pitch_spk_paths = process_dir_pitch(speakerdir, pit_savepath)
             whisper_spk_paths = process_dir_whisper(speakerdir, whisper_savepath, **model_cfgs["whisper"])
             hubert_spk_paths = process_dir_hubert(speakerdir, hubert_savepath, **model_cfgs["hubert"])
-            #embds_spk_paths = process_dir_spk(speakerdir, spk_savepath, **model_cfgs["spk_enc"])
-            #embds_spk_average_path = process_dir_spk_average(spk_savepath, spk_average_savepath)
+            embds_spk_paths = process_dir_spk(speakerdir, spk_savepath, **model_cfgs["spk_enc"])
+            embds_spk_average_path = process_dir_spk_average(spk_savepath, spk_average_savepath)
             sr32k_spk_paths = process_dir_sr32k(speakerdir, sr32k_savepaths)
             specs_spk_paths = process_dir_specs(sr32k_savepaths, spec_savepath, model_cfgs["spec"])
 
+            for i in range(0, len(sr32k_spk_paths)):
+                common.append(
+                        f"{sr32k_spk_paths[i]}|{specs_spk_paths[i]}| \
+                            {pitch_spk_paths[i]}|{hubert_spk_paths[i]}|{whisper_spk_paths[i]}|{embds_spk_paths[i]}")
+
+    random.shuffle(common)
+    split = int(len(common) * 0.2)
+    valids = common[:split]
+    valids.sort()
+    trains = common[split:]
+    trains.sort()
+
+    valids_savepath = os.path.join(output_dir, "valid.txt")
+    trains_savepath = os.path.join(output_dir, "train.txt")
+
+    fw = open(valids_savepath, "w", encoding="utf-8")
+    for strs in valids:
+        print(strs, file=fw)
+    fw.close()
+    fw = open(trains_savepath, "w", encoding="utf-8")
+    for strs in trains:
+        print(strs, file=fw)
+    fw.close()
+
+    return [valids_savepath, trains_savepath]
 
 if __name__ == "__main__":
     cfg = {
