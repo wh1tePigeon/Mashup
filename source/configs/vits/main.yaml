@@ -1,12 +1,13 @@
 defaults:
-  - arch: model_conf
+  - gen: gen_conf
+  - disc: disc_conf
   - dataset: data
   - loss: loss_conf
-  - scheduler_g: scheduler_g
-  - scheduler_d: scheduler_d
+  - scheduler_g: scheduler_g_conf
+  - scheduler_d: scheduler_d_conf
   - trainer: trainer_conf
-  - optimizer_g: optimizer_g
-  - optimizer_d: optimizer_d
+  - optimizer_g: optimizer_g_conf
+  - optimizer_d: optimizer_d_conf
 
 name: vits
 n_gpu: 1

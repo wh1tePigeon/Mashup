@@ -30,11 +30,14 @@ def get_params_count(model_):
 
 @hydra.main(config_path=str(CONFIG_VITS_PATH), config_name="main")
 def train(cfg: DictConfig):
-    train_dataloader = create_dataloader_train(cfg["data"], cfg["n_gpu"], 0)
-    val_dataloader = create_dataloader_eval(cfg["data"])
+    train_dataloader = create_dataloader_train(cfg["dataset"], cfg["n_gpu"], 0)
+    val_dataloader = create_dataloader_eval(cfg["dataset"])
 
-    gen = instantiate(cfg["arch"]["gen"])
-    disc = instantiate(cfg["arch"]["disc"])
+    cfg["gen"]["spec_channels"] = cfg["dataset"]["filter_length"] // 2 + 1
+    cfg["gen"]["segment_size"] = cfg["dataset"]["segment_size"] // cfg["dataset"]["hop_length"]
+    cfg["gen"]["hp"]["data"]["sampling_rate"] = cfg["dataset"]["sampling_rate"]
+    gen = instantiate(cfg["gen"])
+    disc = instantiate(cfg["disc"])
     logger = get_logger("train")
     logger.info(gen)
 
@@ -47,22 +50,22 @@ def train(cfg: DictConfig):
         disc = torch.nn.DataParallel(disc, device_ids=device_ids)
 
     # get function handles of loss and metrics
+    cfg["loss"]["device"] = device.type
     loss_module = instantiate(cfg["loss"]).to(device)
     metrics = []
 
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
-
     gen_trainable_params = filter(lambda p: p.requires_grad, gen.parameters())
-    gen_optimizer = instantiate(cfg["optimizer_g"], torch.optim, gen_trainable_params)
-    gen_lr_scheduler = instantiate(cfg["scheduler_g"], torch.optim.lr_scheduler, gen_optimizer)
+    gen_optimizer = instantiate(cfg["optimizer_g"], gen_trainable_params)
+    gen_lr_scheduler = instantiate(cfg["scheduler_g"], gen_optimizer)
     logger.info(f"Generator params count: {get_params_count(gen)}")
 
-    disc_trainable_params = list(disc.msd.parameters()) + list(disc.mpds.parameters())
-    disc_optimizer = instantiate(cfg["optimizer_d"], torch.optim, disc_trainable_params)
-    disc_lr_scheduler = instantiate(cfg["scheduler_d"], torch.optim.lr_scheduler, disc_optimizer)
-    logger.info(f"MPDs params count: {get_params_count(disc.mpds)}")
-    logger.info(f"MSD params count: {get_params_count(disc.msd)}")
+    disc_trainable_params = disc.parameters()
+    disc_optimizer = instantiate(cfg["optimizer_d"], disc_trainable_params)
+    disc_lr_scheduler = instantiate(cfg["scheduler_d"], disc_optimizer)
+    logger.info(f"Discriminator params count: {get_params_count(disc)}")
+   # logger.info(f"MSD params count: {get_params_count(disc.msd)}")
 
     trainer = Trainer(
         gen,

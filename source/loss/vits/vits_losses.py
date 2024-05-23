@@ -127,11 +127,12 @@ class MultiResolutionSTFTLoss(torch.nn.Module):
         return sc_loss, mag_loss
     
 
-class VitsLoss():
+class VitsLoss(torch.nn.Module):
     def __init__(self, device, resolutions):
-        self.stft_loss = MultiResolutionSTFTLoss(device, resolutions)
+        super(VitsLoss, self).__init__()
+        self.stft_loss = MultiResolutionSTFTLoss(device, eval(resolutions))
         self.spk_loss = nn.CosineEmbeddingLoss()
-        self.l1 = F.l1_loss()
+        self.l1 = F.l1_loss
 
     #def feature_loss(fmap_r, fmap_g):
         # loss = 0

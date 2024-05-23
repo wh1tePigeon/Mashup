@@ -1,1 +1,3 @@
-_target_: source.loss.asr.CTCLossWrapper.CTCLossWrapper
+_target_: source.loss.vits.vits_losses.VitsLoss
+device:
+resolutions: "[(1024, 120, 600), (2048, 240, 1200), (4096, 480, 2400), (512, 50, 240)]"

@@ -1,0 +1,23 @@
+_target_: source.model.vits.synthesizer.SynthesizerTrn
+spec_channels:
+segment_size:
+hp:
+  vits:
+    ppg_dim: 1280
+    vec_dim: 256
+    spk_dim: 256
+    gin_channels: 256
+    inter_channels: 192
+    hidden_channels: 192
+    filter_channels: 640
+  #############################
+  gen:
+    upsample_input: 192
+    upsample_rates: [5,4,4,2,2]
+    upsample_kernel_sizes: [15,8,8,4,4]
+    upsample_initial_channel: 320
+    resblock_kernel_sizes: [3,7,11]
+    resblock_dilation_sizes: [[1,3,5], [1,3,5], [1,3,5]]
+  data:
+    sampling_rate:
+

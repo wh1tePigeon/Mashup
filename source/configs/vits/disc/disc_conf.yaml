@@ -1,0 +1,13 @@
+_target_: source.model.vits.discriminator.discriminator.Discriminator
+hp:
+  mpd:
+    periods: [2,3,5,7,11]
+    kernel_size: 5
+    stride: 3
+    use_spectral_norm: False
+    lReLU_slope: 0.2
+  #############################
+  mrd:
+    resolutions: "[(1024, 120, 600), (2048, 240, 1200), (4096, 480, 2400), (512, 50, 240)]" # (filter_length, hop_length, win_length)
+    use_spectral_norm: False
+    lReLU_slope: 0.2
