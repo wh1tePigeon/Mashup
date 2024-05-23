@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.model.hubert.hubert import hubert_soft
 import json
 from TTS.tts.utils.speakers import SpeakerManager
+from TTS.encoder.models.lstm import LSTMSpeakerEncoder
+from TTS.encoder.configs.speaker_encoder_config import SpeakerEncoderConfig
 from TTS.utils.audio import AudioProcessor
 
 
@@ -152,20 +154,36 @@ def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path, cfg_path):
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
 
+    with open(cfg_path, 'r') as file:
+        cfg_dict = json.load(file)
+
+    config = SpeakerEncoderConfig(cfg_dict)
+    config.from_dict(cfg_dict)
+
+    speaker_encoder = LSTMSpeakerEncoder(
+        config.model_params["input_dim"],
+        config.model_params["proj_dim"],
+        config.model_params["lstm_dim"],
+        config.model_params["num_lstm_layers"],
+    )
+    speaker_encoder.load_checkpoint(config, checkpoint_path, eval=True, use_cuda=torch.cuda.is_available())
+
+    ap = AudioProcessor(**cfg_dict["audio"])
+    ap.do_sound_norm = True
+
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Computing embds for speaker {speakername}'):
         if filename.endswith(".wav"):
             filepath = os.path.join(speaker_dirpath, filename)
-
-            manager = SpeakerManager(encoder_model_path=checkpoint_path, encoder_config_path=cfg_path)
-            with open(cfg_path, 'r') as file:
-                cfg = json.load(file)
-
-            ap = AudioProcessor(**cfg["audio"])
-            ap.do_sound_norm = True
             
-            waveform = ap.load_wav(filepath)
+            waveform = ap.load_wav(filepath, sr=ap.sample_rate)
             mel = ap.melspectrogram(waveform)
-            embd = manager.compute_embeddings(mel.T)
+            spec = torch.from_numpy(mel.T)
+            if torch.cuda.is_available():
+                spec = spec.cuda()
+
+            spec = spec.unsqueeze(0)
+            embd = speaker_encoder.compute_embedding(spec).detach().cpu().numpy()
+            embd = embd.squeeze()
 
             filename = filename[:-4]
             savepath = os.path.join(output_dir, (filename + "_spk"))
