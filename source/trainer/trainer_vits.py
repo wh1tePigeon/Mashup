@@ -47,14 +47,14 @@ class Trainer(BaseTrainer):
 
         self.disc = disc
 
-        if len_epoch is None:
-            # epoch-based training
-            self.len_epoch = len(self.train_dataloader)
-        else:
-            # iteration-based training
-            self.train_dataloader = inf_loop(self.train_dataloader)
-            self.len_epoch = len_epoch
-
+        # if len_epoch is None:
+        #     # epoch-based training
+        #     self.len_epoch = len(self.train_dataloader)
+        # else:
+        #     # iteration-based training
+        #     self.train_dataloader = inf_loop(self.train_dataloader)
+        #     self.len_epoch = len_epoch
+        self.len_epoch = len_epoch
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "MPDs grad_norm", "MSD grad_norm")
         self.evaluation_metrics = [] #MetricTracker(*self.loss_names)
@@ -230,6 +230,7 @@ class Trainer(BaseTrainer):
         self.model.train()
         self.train_metrics.reset()
         self.writer.add_scalar("epoch", epoch)
+        self.train_dataloader.batch_sampler.set_epoch(epoch)
         bar = tqdm(range(self.len_epoch), desc="train")
         for batch_idx, batch in enumerate(self.train_dataloader):
             try:

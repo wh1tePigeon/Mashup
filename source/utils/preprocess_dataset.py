@@ -347,8 +347,7 @@ def process_dir(dirpath, output_dir, model_cfgs):
 
             for i in range(0, len(sr32k_spk_paths)):
                 common.append(
-                        f"{sr32k_spk_paths[i]}|{specs_spk_paths[i]}| \
-                            {pitch_spk_paths[i]}|{hubert_spk_paths[i]}|{whisper_spk_paths[i]}|{embds_spk_paths[i]}")
+                        f"{sr32k_spk_paths[i]}|{specs_spk_paths[i]}|{pitch_spk_paths[i]}|{hubert_spk_paths[i]}|{whisper_spk_paths[i]}|{embds_spk_paths[i]}")
 
     random.shuffle(common)
     split = int(len(common) * 0.2)
