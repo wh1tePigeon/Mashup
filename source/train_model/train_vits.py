@@ -65,7 +65,6 @@ def train(cfg: DictConfig):
     disc_optimizer = instantiate(cfg["optimizer_d"], disc_trainable_params)
     disc_lr_scheduler = instantiate(cfg["scheduler_d"], disc_optimizer)
     logger.info(f"Discriminator params count: {get_params_count(disc)}")
-   # logger.info(f"MSD params count: {get_params_count(disc.msd)}")
 
     trainer = Trainer(
         gen,

@@ -24,7 +24,7 @@ class Trainer(BaseTrainer):
         metrics,
         gen_optimizer,
         disc_optimizer,
-        cfg,
+        config,
         device,
         train_dataloader,
         val_dataloader,
@@ -33,9 +33,9 @@ class Trainer(BaseTrainer):
         len_epoch=None,
         skip_oom=True,
     ):
-        super().__init__(gen, criterion, metrics, None, None, cfg, device)
+        super().__init__(gen, criterion, metrics, None, None, config, device)
         self.skip_oom = skip_oom
-        self.cfg = cfg
+        self.cfg = config
 
         self.gen_optimizer = gen_optimizer
         self.disc_optimizer = disc_optimizer
