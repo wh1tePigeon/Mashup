@@ -26,6 +26,7 @@ def process_dir_pitch(speaker_dirpath, output_dir, use_pyworld=True, use_crepe=F
     assert use_pyworld ^ use_crepe
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
+    savepaths = []
 
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Extracting pitch for speaker {speakername}'):
         if filename.endswith(".wav"):
@@ -76,6 +77,9 @@ def process_dir_pitch(speaker_dirpath, output_dir, use_pyworld=True, use_crepe=F
             filename = filename[:-4]
             savepath = os.path.join(output_dir, (filename + "_pitch"))
             np.save(savepath, f0, allow_pickle=False)
+            savepaths.append(savepath)
+
+    return savepaths
 
 
 def process_dir_whisper(speaker_dirpath, output_dir, model, checkpoint_path):
@@ -101,6 +105,7 @@ def process_dir_whisper(speaker_dirpath, output_dir, model, checkpoint_path):
     model.to(device)
     
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
+    savepaths = []
 
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Extracting ppg for speaker {speakername}'):
         if filename.endswith(".wav"):
@@ -122,6 +127,9 @@ def process_dir_whisper(speaker_dirpath, output_dir, model, checkpoint_path):
                 filename = filename[:-4]
                 savepath = os.path.join(output_dir, (filename + "_ppg"))
                 np.save(savepath, ppg, allow_pickle=False)
+                savepaths.append(savepath)
+    
+    return savepaths
 
 
 
@@ -129,7 +137,7 @@ def process_dir_hubert(speaker_dirpath, output_dir, checkpoint_path):
     assert os.path.exists(speaker_dirpath)
 
     hubert = hubert_soft(checkpoint_path)
-
+    savepaths = []
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
 
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Extracting vec for speaker {speakername}'):
@@ -147,12 +155,16 @@ def process_dir_hubert(speaker_dirpath, output_dir, checkpoint_path):
                 filename = filename[:-4]
                 savepath = os.path.join(output_dir, (filename + "_vec"))
                 np.save(savepath, units, allow_pickle=False)
+                savepaths.append(savepath)
+
+    return savepaths
 
 
 def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path, cfg_path):
     assert os.path.exists(speaker_dirpath)
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
+    savepaths = []
 
     with open(cfg_path, 'r') as file:
         cfg_dict = json.load(file)
@@ -188,6 +200,9 @@ def process_dir_spk(speaker_dirpath, output_dir, checkpoint_path, cfg_path):
             filename = filename[:-4]
             savepath = os.path.join(output_dir, (filename + "_spk"))
             np.save(savepath, embd, allow_pickle=False)
+            savepaths.append(savepath)
+
+    return savepaths
 
 
 
@@ -211,15 +226,18 @@ def process_dir_spk_average(speaker_dirpath, output_dir):
         savepath = os.path.join(output_dir, speakername)
         np.save(savepath, average, allow_pickle=False)
     
+    return savepath
+    
 
 def process_dir_sr32k(speaker_dirpath, output_dir):
     assert os.path.exists(speaker_dirpath)
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
 
+    savepaths = []
+
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Resampling to 32 kHz for speaker {speakername}'):
         if filename.endswith(".wav"):
-            device = "cuda" if torch.cuda.is_available() else "cpu"
             filepath = os.path.join(speaker_dirpath, filename)
 
             audio, sr = librosa.load(filepath, sr=32000)
@@ -228,12 +246,17 @@ def process_dir_sr32k(speaker_dirpath, output_dir):
             filename = filename[:-4]
             savepath = os.path.join(output_dir, (filename + "_sr32k.wav"))
             ta.save(savepath, audio, sr)
+            savepaths.append(savepath)
+
+    return savepaths
 
     
 def process_dir_specs(speaker_dirpath, output_dir, spec_cfg):
     assert os.path.exists(speaker_dirpath)
 
     speakername = os.path.basename(os.path.normpath(speaker_dirpath))
+
+    savepaths = []
 
     for filename in tqdm(os.listdir(speaker_dirpath), desc=f'Computing specs for speaker {speakername}'):
         if filename.endswith(".wav"):
@@ -275,6 +298,9 @@ def process_dir_specs(speaker_dirpath, output_dir, spec_cfg):
             filename = filename[:-4]
             savepath = os.path.join(output_dir, (filename + "_spec.pt"))
             torch.save(spec, savepath)
+            savepaths.append(savepath)
+    
+    return savepaths
     
 
 def process_dir(dirpath, output_dir, model_cfgs):
@@ -307,13 +333,13 @@ def process_dir(dirpath, output_dir, model_cfgs):
             os.makedirs(spk_average_savepath, exist_ok=True)
             os.makedirs(sr32k_savepaths, exist_ok=True)
 
-            #process_dir_pitch(speakerdir, pit_savepath)
-            #process_dir_whisper(speakerdir, whisper_savepath, **model_cfgs["whisper"])
-            #process_dir_hubert(speakerdir, hubert_savepath, **model_cfgs["hubert"])
-            process_dir_spk(speakerdir, spk_savepath, **model_cfgs["spk_enc"])
-            #process_dir_spk_average(spk_savepath, spk_average_savepath)
-            #process_dir_sr32k(speakerdir, sr32k_savepaths)
-            #process_dir_specs(sr32k_savepaths, spec_savepath, model_cfgs["spec"])
+            pitch_spk_paths = process_dir_pitch(speakerdir, pit_savepath)
+            whisper_spk_paths = process_dir_whisper(speakerdir, whisper_savepath, **model_cfgs["whisper"])
+            hubert_spk_paths = process_dir_hubert(speakerdir, hubert_savepath, **model_cfgs["hubert"])
+            #embds_spk_paths = process_dir_spk(speakerdir, spk_savepath, **model_cfgs["spk_enc"])
+            #embds_spk_average_path = process_dir_spk_average(spk_savepath, spk_average_savepath)
+            sr32k_spk_paths = process_dir_sr32k(speakerdir, sr32k_savepaths)
+            specs_spk_paths = process_dir_specs(sr32k_savepaths, spec_savepath, model_cfgs["spec"])
 
 
 if __name__ == "__main__":
