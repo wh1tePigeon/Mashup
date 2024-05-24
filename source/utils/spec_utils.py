@@ -26,7 +26,7 @@ def mel_spectrogram(cfg, y):
     assert(torch.min(y.data) >= -1)
     assert(torch.max(y.data) <= 1)
     mel = librosa_mel_fn(
-            sr=cfg["sr"], n_fft=cfg["n_fft"], n_mels=cfg["n_mels"], fmin=cfg["fmin"], fmax=cfg["fmin"])
+            sr=cfg["sr"], n_fft=cfg["n_fft"], n_mels=cfg["n_mels"], fmin=cfg["fmin"], fmax=cfg["fmax"])
 
     mel_basis = torch.from_numpy(mel).float().to(cfg["device"])
 

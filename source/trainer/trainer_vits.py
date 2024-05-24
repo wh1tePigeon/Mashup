@@ -102,7 +102,6 @@ class Trainer(BaseTrainer):
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
-        #ppg, ppg_l, vec, pit, spk, spec, spec_l, audio, audio_l = batch
         if is_train:
             # generator
             fake_audio, ids_slice, z_mask, \
@@ -110,18 +109,19 @@ class Trainer(BaseTrainer):
                     batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
 
             audio = slice_segments(
-                audio, ids_slice * self.cfg["data"]["hop_length"], self.cfg["data"]["segment_size"])  # slice
+                batch["audio"], ids_slice * self.cfg["dataset"]["hop_length"], self.cfg["dataset"]["segment_size"])  # slice
             # Spk Loss
             batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
                                 .to(self.device).fill_(1.0))
             # Mel Loss
-            mel_fake = mel_spectrogram(self.cfg["mel"], fake_audio.squeeze(1))
-            mel_real = mel_spectrogram(self.cfg["mel"], audio.squeeze(1))
-            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg["train"]["c_mel"]
+            self.cfg.mel.device = self.device.type
+            mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
+            mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
+            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg.trainer.c_mel
 
             # Multi-Resolution STFT Loss
             sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
-            batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg["train"]["c_stft"]
+            batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg.trainer.c_stft
 
             # Generator Loss
             disc_fake = self.disc(fake_audio)
@@ -132,8 +132,8 @@ class Trainer(BaseTrainer):
             batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
 
             # Kl Loss
-            batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg["train"]["c_kl"]
-            batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg["train"]["c_kl"]
+            batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg.trainer.c_kl
+            batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg.trainer.c_kl
 
             # Loss
             batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
@@ -142,10 +142,10 @@ class Trainer(BaseTrainer):
             #loss_g = gen_loss + feat_loss + mel_loss + stft_loss + loss_kl_f + loss_kl_r * 0.5 + spk_loss * 2
             #loss_g.backward()
 
-            if ((self.step + 1) % self.cfg["train"]["accum_step"] == 0):
+            if ((self.step + 1) % self.cfg.trainer.accum_step == 0):
                 # accumulate gradients for accum steps
                 for param in self.model.parameters():
-                    param.grad /= self.cfg["train"]["accum_step"]
+                    param.grad /= self.cfg.trainer.accum_step
                 self._clip_grad_norm(self.model)
                 # update model
                 self.gen_optimizer.step()

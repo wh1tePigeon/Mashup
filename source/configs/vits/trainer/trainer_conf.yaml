@@ -9,3 +9,7 @@ len_epoch: 512
 log_step: 128
 grad_norm_clip: 10
 beam_size: 5
+accum_step: 2
+c_stft: 9
+c_mel: 1.
+c_kl: 0.2

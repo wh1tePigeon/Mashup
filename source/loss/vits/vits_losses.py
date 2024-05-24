@@ -134,27 +134,17 @@ class VitsLoss(torch.nn.Module):
         self.spk_loss = nn.CosineEmbeddingLoss()
         self.l1 = F.l1_loss
 
-    #def feature_loss(fmap_r, fmap_g):
-        # loss = 0
-        # for dr, dg in zip(fmap_r, fmap_g):
-        #     for rl, gl in zip(dr, dg):
-        #         rl = rl.float().detach()
-        #         gl = gl.float()
-        #         loss += torch.mean(torch.abs(rl - gl))
-
-        # #return loss * 2
-        # loss = feat_loss / len(disc_fake)
-        # return loss
-    def feature_loss(disc_fake, disc_real):
+    def feature_loss(self, disc_fake, disc_real):
         feat_loss = 0.0
         for (feat_fake, _), (feat_real, _) in zip(disc_fake, disc_real):
             for fake, real in zip(feat_fake, feat_real):
                 feat_loss += torch.mean(torch.abs(fake - real))
         feat_loss = feat_loss / len(disc_fake)
         feat_loss = feat_loss * 2
+        return feat_loss
 
 
-    def discriminator_loss(disc_real, disc_fake):
+    def discriminator_loss(self, disc_real, disc_fake):
         # loss = 0
         # r_losses = []
         # g_losses = []
@@ -177,10 +167,10 @@ class VitsLoss(torch.nn.Module):
         return loss_d
 
 
-    def generator_loss(disc_outputs):
+    def generator_loss(self, disc_outputs):
         loss = 0
         gen_losses = []
-        for dg in disc_outputs:
+        for (_, dg) in disc_outputs:
             dg = dg.float()
             l = torch.mean((1 - dg) ** 2)
             gen_losses.append(l)
@@ -189,7 +179,7 @@ class VitsLoss(torch.nn.Module):
         return loss, gen_losses
 
 
-    def kl_loss(z_p, logs_q, m_p, logs_p, total_logdet, z_mask):
+    def kl_loss(self, z_p, logs_q, m_p, logs_p, total_logdet, z_mask):
         """
         z_p, logs_q: [b, h, t_t]
         m_p, logs_p: [b, h, t_t]

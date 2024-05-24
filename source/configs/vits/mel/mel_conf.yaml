@@ -1,0 +1,10 @@
+sr: 32000
+n_fft: 512
+n_mels: 100
+fmin: 50.0
+fmax: 16000.0
+win_length: 512
+device:
+hop_size: 160
+center: False
+pad_mode: "reflect"

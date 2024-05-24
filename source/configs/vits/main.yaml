@@ -3,6 +3,7 @@ defaults:
   - disc: disc_conf
   - dataset: data
   - loss: loss_conf
+  - mel: mel_conf
   - scheduler_g: scheduler_g_conf
   - scheduler_d: scheduler_d_conf
   - trainer: trainer_conf

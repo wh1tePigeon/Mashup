@@ -5,6 +5,7 @@ from numpy import inf
 
 from source.logger import get_visualizer
 from source.utils.util import get_logger
+from source.utils import MetricTracker
 
 
 class BaseTrainer:
@@ -226,3 +227,36 @@ class BaseTrainer:
         self.logger.info(
             "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
         )
+
+    @torch.no_grad()
+    def get_grad_norm(self, submodel, norm_type=2):
+        parameters = submodel.parameters()
+        if isinstance(parameters, torch.Tensor):
+            parameters = [parameters]
+        parameters = [p for p in parameters if p.grad is not None]
+
+        total_norm = torch.norm(
+            torch.stack([torch.norm(torch.nan_to_num(p.grad.detach(), nan=0), norm_type).cpu() for p in parameters]),
+            norm_type,
+        )
+        return total_norm.item()
+
+    def _log_scalars(self, metric_tracker: MetricTracker):
+        if self.writer is None:
+            return
+        for metric_name in metric_tracker.keys():
+            self.writer.add_scalar(f"{metric_name}", metric_tracker.avg(metric_name))
+
+    def _clip_grad_norm(self, submodel):
+        if self.config["trainer"].get("grad_norm_clip", None) is not None:
+            torch.nn.utils.clip_grad_norm_(submodel.parameters(), self.config["trainer"]["grad_norm_clip"])
+
+    def _progress(self, batch_idx):
+        base = "[{}/{} ({:.0f}%)]"
+        if hasattr(self.train_dataloader, "n_samples"):
+            current = batch_idx * self.train_dataloader.batch_size
+            total = self.train_dataloader.n_samples
+        else:
+            current = batch_idx
+            total = self.len_epoch
+        return base.format(current, total, 100.0 * current / total)
