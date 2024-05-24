@@ -46,17 +46,10 @@ class Trainer(BaseTrainer):
         self.val_dataloader = val_dataloader
 
         self.disc = disc
-
-        # if len_epoch is None:
-        #     # epoch-based training
-        #     self.len_epoch = len(self.train_dataloader)
-        # else:
-        #     # iteration-based training
-        #     self.train_dataloader = inf_loop(self.train_dataloader)
-        #     self.len_epoch = len_epoch
         self.len_epoch = len_epoch
+        self.step = 0
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
-        self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "MPDs grad_norm", "MSD grad_norm")
+        self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = [] #MetricTracker(*self.loss_names)
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
@@ -109,17 +102,17 @@ class Trainer(BaseTrainer):
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
-        ppg, ppg_l, vec, pit, spk, spec, spec_l, audio, audio_l = batch
+        #ppg, ppg_l, vec, pit, spk, spec, spec_l, audio, audio_l = batch
         if is_train:
             # generator
             fake_audio, ids_slice, z_mask, \
                 (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
-                    ppg, vec, pit, spec, spk, ppg_l, spec_l)
+                    batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
 
             audio = slice_segments(
                 audio, ids_slice * self.cfg["data"]["hop_length"], self.cfg["data"]["segment_size"])  # slice
             # Spk Loss
-            batch["spk_loss"] = self.criterion.spk_loss(spk, spk_preds, torch.Tensor(spk_preds.size(0))
+            batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
                                 .to(self.device).fill_(1.0))
             # Mel Loss
             mel_fake = mel_spectrogram(self.cfg["mel"], fake_audio.squeeze(1))
@@ -149,7 +142,7 @@ class Trainer(BaseTrainer):
             #loss_g = gen_loss + feat_loss + mel_loss + stft_loss + loss_kl_f + loss_kl_r * 0.5 + spk_loss * 2
             #loss_g.backward()
 
-            if ((step + 1) % self.cfg["train"]["accum_step"] == 0) or (step + 1 == len(loader)):
+            if ((self.step + 1) % self.cfg["train"]["accum_step"] == 0):
                 # accumulate gradients for accum steps
                 for param in self.model.parameters():
                     param.grad /= self.cfg["train"]["accum_step"]
@@ -168,28 +161,7 @@ class Trainer(BaseTrainer):
             self._clip_grad_norm(self.disc)
             self.disc_optimizer.step()
 
-
-            # # discriminator
-            # self.disc_optimizer.zero_grad()
-            # batch.update(self.model.disc_forward(batch["pred"].detach(), batch["target"]))
-            # disc_loss = self.criterion.disc(**batch)
-            # batch.update(disc_loss)
-            # batch["disc_loss"].backward()
-            # self._clip_grad_norm(self.model.mpds)
-            # self._clip_grad_norm(self.model.msd)
-            # self.disc_optimizer.step()
-            # self.train_metrics.update("MPDs grad_norm", self.get_grad_norm(self.model.mpds))
-            # self.train_metrics.update("MSD grad_norm", self.get_grad_norm(self.model.msd))
-
-            # # generator
-            # batch.update(self.model.disc_forward(**batch))
-            # self.gen_optimizer.zero_grad()
-            # gen_loss = self.criterion.gen(**batch)
-            # batch.update(gen_loss)
-            # batch["gen_loss"].backward()
-            # self._clip_grad_norm(self.model.gen)
-            # self.gen_optimizer.step()
-            # self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model.gen))
+            self.step = self.step + 1
 
             for loss_name in self.loss_names:
                 metrics.update(loss_name, batch[loss_name].item())

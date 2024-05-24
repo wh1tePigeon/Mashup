@@ -55,7 +55,7 @@ class TextAudioSpeakerSet(torch.utils.data.Dataset):
         audio, sampling_rate = ta.load(filename)
         assert sampling_rate == self.sampling_rate, f"error: this sample rate of {filename} is {sampling_rate}"
         audio_norm = audio / self.max_wav_value
-        audio_norm = audio_norm.unsqueeze(0)
+        #audio_norm = audio_norm.unsqueeze(0)
         return audio_norm
 
     def __getitem__(self, index):
