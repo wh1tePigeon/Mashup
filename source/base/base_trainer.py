@@ -27,7 +27,7 @@ class BaseTrainer:
 
         # for interrupt saving
         self._last_epoch = 0
-
+        self.log_step = cfg_trainer["log_step"]
         cfg_trainer = config["trainer"]
         self.epochs = cfg_trainer["epochs"]
         self.save_period = cfg_trainer["save_period"]
