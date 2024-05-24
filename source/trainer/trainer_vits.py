@@ -69,14 +69,17 @@ class Trainer(BaseTrainer):
         """
         arch = type(self.model).__name__
         state = {
-            "arch": arch,
-            "epoch": epoch,
-            "state_dict": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "lr_scheduler": self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None,
-            "monitor_best": self.mnt_best,
+            'gen': (self.model.module if self.cfg.num_gpu > 1 else self.model).state_dict(),
+            'disc': (self.disc.module if self.cfg.num_gpu > 1 else self.disc).state_dict(),
+            'optim_g': self.gen_optimizer.state_dict(),
+            'optim_d': self.disc_optimizer.state_dict(),
+            'scheduler_g' : self.gen_lr_scheduler.state_dict(),
+            'scheduler_d' : self.disc_lr_scheduler.state_dict(),
+            'step': self.step,
+            'epoch': epoch,
             "config": self.config,
-        }
+            "monitor_best": self.mnt_best
+            }
         filename = str(self.checkpoint_dir / "checkpoint-epoch{}.pth".format(epoch))
         if not (only_best and save_best):
             torch.save(state, filename)
@@ -98,14 +101,16 @@ class Trainer(BaseTrainer):
         self.mnt_best = checkpoint["monitor_best"]
 
         # load architecture params from checkpoint.
-        if checkpoint["config"]["arch"] != self.config["arch"]:
+        if checkpoint["config"]["gen"] != self.config["gen"] or \
+            checkpoint["config"]["disc"] != self.config["disc"]:
             self.logger.warning(
                 "Warning: Architecture configuration given in config file is different from that "
                 "of checkpoint. This may yield an exception while state_dict is being loaded."
             )
         
         # load optimizer state (accumulated gradients)
-        self.model.load_state_dict(checkpoint["state_dict"])
+        self.model.load_state_dict(checkpoint["gen"]["state_dict"])
+        self.disc.load_state_dict(checkpoint["disc"]["state_dict"])
 
         self.logger.info(
             "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
@@ -122,28 +127,36 @@ class Trainer(BaseTrainer):
         checkpoint = torch.load(resume_path, self.device)
         self.start_epoch = checkpoint["epoch"] + 1
         self.mnt_best = checkpoint["monitor_best"]
+        self.step = checkpoint["step"] + 1
 
         # load architecture params from checkpoint.
-        if checkpoint["config"]["arch"] != self.config["arch"]:
+        if checkpoint["config"]["gen"] != self.config["gen"] or \
+            checkpoint["config"]["disc"] != self.config["disc"]:
             self.logger.warning(
                 "Warning: Architecture configuration given in config file is different from that "
                 "of checkpoint. This may yield an exception while state_dict is being loaded."
             )
-        self.model.load_state_dict(checkpoint["state_dict"])
+        self.model.load_state_dict(checkpoint["gen"]["state_dict"])
+        self.disc.load_state_dict(checkpoint["disc"]["state_dict"])
 
         # load optimizer state from checkpoint only when optimizer type is not changed.
         if (
-                checkpoint["config"]["optimizer"] != self.config["optimizer"] or
-                checkpoint["config"]["lr_scheduler"] != self.config["lr_scheduler"]
+                checkpoint["config"]["optimizer_d"] != self.config["optimizer_d"] or
+                checkpoint["config"]["scheduler_d"] != self.config["scheduler_d"] or
+                checkpoint["config"]["optimizer_g"] != self.config["optimizer_g"] or
+                checkpoint["config"]["scheduler_g"] != self.config["scheduler_g"]
         ):
             self.logger.warning(
                 "Warning: Optimizer or lr_scheduler given in config file is different "
                 "from that of checkpoint. Optimizer parameters not being resumed."
             )
         else:
-            self.optimizer.load_state_dict(checkpoint["optimizer"])
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            self.gen_optimizer.load_state_dict(checkpoint["optimizer_g"])
+            self.disc_optimizer.load_state_dict(checkpoint["optimizer_d"])
+            if self.gen_lr_scheduler is not None:
+                self.gen_lr_scheduler.load_state_dict(checkpoint["scheduler_g"])
+            if self.disc_lr_scheduler is not None:
+                self.disc_lr_scheduler.load_state_dict(checkpoint["scheduler_g"])
 
         self.logger.info(
             "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
@@ -174,42 +187,44 @@ class Trainer(BaseTrainer):
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
+        
+        # generator
+        fake_audio, ids_slice, z_mask, \
+            (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
+                batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
+
+        audio = slice_segments(
+            batch["audio"], ids_slice * self.cfg["dataset"]["hop_length"], self.cfg["dataset"]["segment_size"])  # slice
+        # Spk Loss
+        batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
+                            .to(self.device).fill_(1.0))
+        # Mel Loss
+        self.cfg.mel.device = self.device.type
+        mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
+        mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
+        batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg.trainer.c_mel
+
+        # Multi-Resolution STFT Loss
+        sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
+        batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg.trainer.c_stft
+
+        # Generator Loss
+        disc_fake = self.disc(fake_audio)
+        batch["gen_loss"], _ = self.criterion.generator_loss(disc_fake)
+
+        # Feature Loss
+        disc_real = self.disc(audio)
+        batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
+
+        # Kl Loss
+        batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg.trainer.c_kl
+        batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg.trainer.c_kl
+
+        # Loss
+        batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
+            batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
+        
         if is_train:
-            # generator
-            fake_audio, ids_slice, z_mask, \
-                (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
-                    batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
-
-            audio = slice_segments(
-                batch["audio"], ids_slice * self.cfg["dataset"]["hop_length"], self.cfg["dataset"]["segment_size"])  # slice
-            # Spk Loss
-            batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
-                                .to(self.device).fill_(1.0))
-            # Mel Loss
-            self.cfg.mel.device = self.device.type
-            mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
-            mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
-            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg.trainer.c_mel
-
-            # Multi-Resolution STFT Loss
-            sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
-            batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg.trainer.c_stft
-
-            # Generator Loss
-            disc_fake = self.disc(fake_audio)
-            batch["gen_loss"], _ = self.criterion.generator_loss(disc_fake)
-
-            # Feature Loss
-            disc_real = self.disc(audio)
-            batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
-
-            # Kl Loss
-            batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg.trainer.c_kl
-            batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg.trainer.c_kl
-
-            # Loss
-            batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
-                batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
             batch["loss_g"].backward()
 
             if ((self.step + 1) % self.cfg.trainer.accum_step == 0):
