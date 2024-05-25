@@ -32,28 +32,28 @@ def get_params_count(model_):
 
 @hydra.main(config_path=str(CONFIG_CASCADED_PATH), config_name="main")
 def train(cfg: DictConfig):
-    model = instantiate(cfg["arch"])
+    model = instantiate(cfg.arch)
     logger = get_logger("train")
     logger.info(model)
 
     # prepare for (multi-device) GPU training
-    device, device_ids = prepare_device(cfg["n_gpu"])
+    device, device_ids = prepare_device(cfg.n_gpu)
     model = model.to(device)
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
 
-    cfg["dataset"]["val"]["offset"] = model.offset
-    train_dataloader, val_dataloader = get_dataloaders(cfg["dataset"])
+    cfg.dataset.val.offset = model.offset
+    train_dataloader, val_dataloader = get_dataloaders(cfg.dataset)
 
     # get function handles of loss and metrics
-    loss_module = instantiate(cfg["loss"]).to(device)
+    loss_module = instantiate(cfg.loss).to(device)
     metrics = []
 
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = instantiate(cfg["optimizer"], trainable_params)
-    scheduler = instantiate(cfg["scheduler"], optimizer)
+    optimizer = instantiate(cfg.optimizer, trainable_params)
+    scheduler = instantiate(cfg.scheduler, optimizer)
     logger.info(f"Model params count: {get_params_count(model)}")
 
     trainer = Trainer(

@@ -21,7 +21,6 @@ class Trainer(BaseTrainer):
             config,
             device,
             log_step,
-            #dataloaders,
             train_dataloader,
             val_dataloader,
             lr_scheduler=None,
@@ -42,35 +41,33 @@ class Trainer(BaseTrainer):
             self.train_dataloader = inf_loop(self.train_dataloader)
             self.len_epoch = len_epoch
         
-        #self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
+
         self.lr_scheduler = lr_scheduler
         self.log_step = log_step
 
-        self.train_metrics = MetricTracker(
-            "loss", "grad norm", *[m.name for m in self.metrics], writer=self.writer
-        )
-        self.evaluation_metrics = MetricTracker(
-            "loss", *[m.name for m in self.metrics], writer=self.writer
-        )
+        self.train_metrics = MetricTracker("l1_loss", "Model grad_norm")
+        self.evaluation_metrics = MetricTracker("mel_loss", "l1_loss")
 
 
-    @staticmethod
-    def move_batch_to_device(batch, device: torch.device):
-        """
-        Move all necessary tensors to the GPU
-        """
-        # for tensor_for_gpu in ["audio", "bonafied"]:
-        #     if tensor_for_gpu in batch:
-        #         batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
-        for tensor in batch:
-            tensor = tensor.to(device)
+    def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
+        batch = self.move_batch_to_device(batch, self.device)
+
+        X, y = batch
+        mask = self.model(X)
+        pred = X * mask
+        loss = self.criterion(pred, y)
+
+        if is_train:
+            self.optimizer.zero_grad()
+            loss.backward()
+            self._clip_grad_norm()
+            self.optimizer.step()
+            #if self.lr_scheduler is not None:
+            #    self.lr_scheduler.step()
+
+        metrics.update("loss", loss.item())
         return batch
-
-    def _clip_grad_norm(self):
-        if self.config["trainer"].get("grad_norm_clip", None) is not None:
-            clip_grad_norm_(
-                self.model.parameters(), self.config["trainer"]["grad_norm_clip"]
-            )
+    
 
     def _train_epoch(self, epoch):
         """
@@ -127,25 +124,7 @@ class Trainer(BaseTrainer):
             log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
 
         return log
-
-    def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
-        batch = self.move_batch_to_device(batch, self.device)
-
-        X, y = batch
-        mask = self.model(X)
-        pred = X * mask
-        loss = self.criterion(pred, y)
-
-        if is_train:
-            self.optimizer.zero_grad()
-            loss.backward()
-            self._clip_grad_norm()
-            self.optimizer.step()
-            #if self.lr_scheduler is not None:
-            #    self.lr_scheduler.step()
-
-        metrics.update("loss", loss.item())
-        return batch
+    
 
     def _evaluation_epoch(self, epoch, part, dataloader):
         """
@@ -177,6 +156,27 @@ class Trainer(BaseTrainer):
         for name, p in self.model.named_parameters():
             self.writer.add_histogram(name, p, bins="auto")
         return self.evaluation_metrics.result()
+    
+
+    @staticmethod
+    def move_batch_to_device(batch, device: torch.device):
+        """
+        Move all necessary tensors to the GPU
+        """
+        # for tensor_for_gpu in ["audio", "bonafied"]:
+        #     if tensor_for_gpu in batch:
+        #         batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
+        for tensor in batch:
+            tensor = tensor.to(device)
+        return batch
+
+
+    def _clip_grad_norm(self):
+        if self.config["trainer"].get("grad_norm_clip", None) is not None:
+            clip_grad_norm_(
+                self.model.parameters(), self.config["trainer"]["grad_norm_clip"]
+            )
+
 
     def _progress(self, batch_idx):
         base = "[{}/{} ({:.0f}%)]"

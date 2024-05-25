@@ -2,7 +2,7 @@ defaults:
   - arch: model_conf
 # - augmentations: aug
   - dataset: datas
-  - loss: l1
+  - loss: loss_conf
   - scheduler: scheduler_conf
 #  - metrics: metrics_conf
 #  - preprocessing: preprocessing_conf
