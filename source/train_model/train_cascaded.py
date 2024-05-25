@@ -26,6 +26,10 @@ np.random.seed(SEED)
 
 CONFIG_CASCADED_PATH = CONFIGS_PATH / 'cascaded'
 
+def get_params_count(model_):
+    model_parameters = filter(lambda p: p.requires_grad, model_.parameters())
+    return sum([np.prod(p.size()) for p in model_parameters])
+
 @hydra.main(config_path=str(CONFIG_CASCADED_PATH), config_name="main")
 def train(cfg: DictConfig):
     model = instantiate(cfg["arch"])
@@ -44,17 +48,13 @@ def train(cfg: DictConfig):
     # get function handles of loss and metrics
     loss_module = instantiate(cfg["loss"]).to(device)
     metrics = []
-    #metrics = [
-    #    instantiate(m) for m in cfg["metrics"]
-        #config.init_obj(metric_dict, module_metric, text_encoder=text_encoder)
-        #for metric_dict in config["metrics"]
-    #]
 
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = instantiate(cfg["optimizer"], trainable_params)
     scheduler = instantiate(cfg["scheduler"], optimizer)
+    logger.info(f"Model params count: {get_params_count(model)}")
 
     trainer = Trainer(
         model,
