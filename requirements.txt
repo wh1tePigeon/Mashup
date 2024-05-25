@@ -1,7 +1,6 @@
 asteroid
 datasets
 editdistance
-fire
 fsspec
 gdown
 hydra-core
