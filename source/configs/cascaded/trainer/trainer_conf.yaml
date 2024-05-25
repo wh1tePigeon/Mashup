@@ -1,11 +1,13 @@
-epochs: 32
+epochs: 200
 save_dir: saved/
 save_period: 5
 verbosity: 2
 early_stop: 65
 visualize: wandb
 wandb_project: cascaded
-len_epoch: 512
+len_epoch:
 log_step: 128
 grad_norm_clip: 10
 beam_size: 5
+accum_step: 1
+eval_interval: 5
