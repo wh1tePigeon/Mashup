@@ -56,9 +56,10 @@ class Trainer(BaseTrainer):
             self.len_epoch = len_epoch
 
         self.step = 0
+        self.eval_interval = self.cfg.trainer.eval_interval
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
-        self.evaluation_metrics = MetricTracker(*self.loss_names)
+        self.evaluation_metrics = MetricTracker("mel_loss")
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
         """
@@ -188,44 +189,52 @@ class Trainer(BaseTrainer):
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
         
-        # generator
-        fake_audio, ids_slice, z_mask, \
-            (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
-                batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
-
-        audio = slice_segments(
-            batch["audio"], ids_slice * self.cfg["dataset"]["hop_length"], self.cfg["dataset"]["segment_size"])  # slice
-        # Spk Loss
-        batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
-                            .to(self.device).fill_(1.0))
-        # Mel Loss
-        self.cfg.mel.device = self.device.type
-        mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
-        mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
-        batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg.trainer.c_mel
-
-        # Multi-Resolution STFT Loss
-        sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
-        batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg.trainer.c_stft
-
-        # Generator Loss
-        disc_fake = self.disc(fake_audio)
-        batch["gen_loss"], _ = self.criterion.generator_loss(disc_fake)
-
-        # Feature Loss
-        disc_real = self.disc(audio)
-        batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
-
-        # Kl Loss
-        batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg.trainer.c_kl
-        batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg.trainer.c_kl
-
-        # Loss
-        batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
-            batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
-        
         if is_train:
+            # generator
+            fake_audio, ids_slice, z_mask, \
+                (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
+                    batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
+
+            audio = slice_segments(
+                batch["audio"], ids_slice * self.cfg["dataset"]["hop_length"], self.cfg["dataset"]["segment_size"])  # slice
+            # Spk Loss
+            batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
+                                .to(self.device).fill_(1.0))
+            # Mel Loss
+            self.cfg.mel.device = self.device.type
+            mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
+            mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
+            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg.trainer.c_mel
+
+            # Multi-Resolution STFT Loss
+            sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
+            batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg.trainer.c_stft
+
+            # Generator Loss
+            disc_fake = self.disc(fake_audio)
+            batch["gen_loss"], _ = self.criterion.generator_loss(disc_fake)
+
+            # Feature Loss
+            disc_real = self.disc(audio)
+            batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
+
+            # Kl Loss
+            batch["loss_kl_f"] = self.criterion.kl_loss(z_f, logs_q, m_p, logs_p, logdet_f, z_mask) * self.cfg.trainer.c_kl
+            batch["loss_kl_r"] = self.criterion.kl_loss(z_r, logs_p, m_q, logs_q, logdet_r, z_mask) * self.cfg.trainer.c_kl
+
+            # Loss
+            batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
+                batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
+            
+            # discriminator
+            disc_fake = self.disc(fake_audio.detach())
+            disc_real = self.disc(audio)
+
+            batch["disc_loss"] = self.criterion.discriminator_loss(disc_real, disc_fake)
+        
+        
             batch["loss_g"].backward()
+            batch["disc_loss"].backward()
 
             if ((self.step + 1) % self.cfg.trainer.accum_step == 0):
                 # accumulate gradients for accum steps
@@ -233,26 +242,35 @@ class Trainer(BaseTrainer):
                     param.grad /= self.cfg.trainer.accum_step
                 self._clip_grad_norm(self.model)
                 # update model
-                self.gen_optimizer.step()
                 self.gen_optimizer.zero_grad()
-
-            # discriminator
-            self.disc_optimizer.zero_grad()
-            disc_fake = self.disc(fake_audio.detach())
-            disc_real = self.disc(audio)
-
-            batch["disc_loss"] = self.criterion.discriminator_loss(disc_real, disc_fake)
-            batch["disc_loss"].backward()
+                self.gen_optimizer.step()
+                
             self._clip_grad_norm(self.disc)
+            self.disc_optimizer.zero_grad()
             self.disc_optimizer.step()
 
             self.step = self.step + 1
 
             for loss_name in self.loss_names:
-                metrics.update(loss_name, batch[loss_name].item())
+                self.train_metrics.update(loss_name, batch[loss_name].item())
 
-        for metric in self.metrics:
-            metrics.update(metric.name, metric(**batch))
+            self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
+            self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
+
+        else:
+            if hasattr(self.model, 'module'):
+                fake_audio = self.model.module.infer(batch["ppg"], batch["vec"], batch["pit"],
+                                                     batch["spk"], batch["ppg_l"])[
+                    :, :, :audio.size(2)]
+            else:
+                fake_audio = self.model.infer(batch["ppg"], batch["vec"], batch["pit"],
+                                                     batch["spk"], batch["ppg_l"])[
+                    :, :, :audio.size(2)]
+                
+            self.cfg.mel.device = self.device.type
+            mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
+            mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
+            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real)
 
         return batch
 
@@ -267,10 +285,15 @@ class Trainer(BaseTrainer):
         self.evaluation_metrics.reset()
 
         with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataloader), desc=part, total=len(dataloader)):
+            mel_loss = 0
+            for _, batch in tqdm(enumerate(dataloader)):
                 batch = self.process_batch(batch, False, metrics=self.evaluation_metrics)
+                mel_loss += batch["mel_loss"].item()
 
-            self.writer.set_step(epoch * self.len_epoch, part)
+            mel_loss = mel_loss / len(dataloader)
+
+            self.writer.set_step(self.step)
+            self.evaluation_metrics.update("mel_loss", mel_loss)
             # self._log_predictions(**batch)
             # self._log_spectrogram(batch["spectrogram"])
             self._log_scalars(self.evaluation_metrics)
@@ -302,12 +325,12 @@ class Trainer(BaseTrainer):
                     continue
                 else:
                     raise e
-
-            if batch_idx % self.log_step == 0:
-                self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
+            
+            if self.step % self.log_step == 0:
+                self.writer.set_step(self.step)
                 self.logger.debug(
                     "Train Epoch: {} {} Gen loss: {:.6f} Disc loss: {:.6f}".format(
-                        epoch, self._progress(batch_idx), batch["gen_loss"].item(), batch["disc_loss"].item()
+                        epoch, self._progress(self.step), batch["gen_loss"].item(), batch["disc_loss"].item()
                     )
                 )
                 self.writer.add_scalar("disc learning rate", self.disc_lr_scheduler.get_last_lr()[0])
@@ -327,8 +350,10 @@ class Trainer(BaseTrainer):
         self.disc_lr_scheduler.step()
 
         log = last_train_metrics
-        for part, dataloader in self.evaluation_dataloaders.items():
-            val_log = self._evaluation_epoch(epoch, part, dataloader)
-            log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
-
+        # for part, dataloader in self.evaluation_dataloaders.items():
+        #     val_log = self._evaluation_epoch(epoch, part, dataloader)
+        #     log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
+        if epoch % self.eval_interval == 0:
+            val_log = self._evaluation_epoch(epoch, dataloader=self.val_dataloader)
+            log.update(**{f"{name}": value for name, value in val_log.items()})        
         return log

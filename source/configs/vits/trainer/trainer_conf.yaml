@@ -1,12 +1,12 @@
-epochs: 200
+epochs: 300
 save_dir: saved/
 save_period: 5
 verbosity: 2
 early_stop: 65
 visualize: wandb
 wandb_project: vits
-len_epoch: 512
-log_step: 128
+len_epoch:
+log_step: 100
 grad_norm_clip: 10
 beam_size: 5
 accum_step: 2
