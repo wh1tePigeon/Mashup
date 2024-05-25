@@ -48,8 +48,8 @@ class Trainer(BaseTrainer):
         self.lr_scheduler = lr_scheduler
         self.log_step = log_step
         self.step = 0
-        self.eval_interval = self.cfg.trainer.eval_interval
-        self.accum_step = self.cfg.trainer.accum_step
+        self.eval_interval = self.config.trainer.eval_interval
+        self.accum_step = self.config.trainer.accum_step
         self.train_metrics = MetricTracker("l1_loss", "grad_norm")
         self.evaluation_metrics = MetricTracker("sdr_loss", "l1_loss")
 
@@ -62,8 +62,8 @@ class Trainer(BaseTrainer):
         if is_train:
             mask = self.model(X)
             pred = X * mask
-            batch["l1_loss"] = self.criterion.l1(pred, y)
-            accum_loss = batch["l1_loss"] / self.accum_step
+            l1_loss = self.criterion.l1(pred, y)
+            accum_loss = l1_loss / self.accum_step
             accum_loss.backward()
 
             if self.step % self.accum_step == 0:
@@ -73,16 +73,17 @@ class Trainer(BaseTrainer):
 
             self.step = self.step + 1
 
+            return l1_loss.item() * len(X)
+
         else:
             y_pred = self.model.predict(X)
 
             y_batch = crop_center(y_batch, y_pred)
 
-            batch["l1_loss"] = self.criterion.l1(y_pred, y_batch)
-            batch["sdr_loss"] = self.criterion.sdr(y_pred, y_batch)
+            l1_loss = self.criterion.l1(y_pred, y_batch)
+            sdr_loss = self.criterion.sdr(y_pred, y_batch)
 
-
-        return batch
+            return l1_loss.item() * len(X), sdr_loss.item() * len(X)
     
 
     def _train_epoch(self, epoch):
@@ -100,12 +101,12 @@ class Trainer(BaseTrainer):
                 tqdm(self.train_dataloader, desc="train", total=self.len_epoch)
         ):
             try:
-                batch = self.process_batch(
+                l1_loss = self.process_batch(
                     batch,
                     is_train=True,
                     metrics=self.train_metrics,
                 )
-                sum_loss_l1 += batch["l1_loss"].item() * len(batch[0])
+                sum_loss_l1 += l1_loss
             except RuntimeError as e:
                 if "out of memory" in str(e) and self.skip_oom:
                     self.logger.warning("OOM on batch. Skipping batch.")
@@ -116,7 +117,7 @@ class Trainer(BaseTrainer):
                     continue
                 else:
                     raise e
-            self.train_metrics.update("grad_norm", self.get_grad_norm())
+            #self.train_metrics.update("grad_norm", self.get_grad_norm())
             
             if batch_idx >= self.len_epoch:
                 break
@@ -159,13 +160,13 @@ class Trainer(BaseTrainer):
         sum_loss_sdr = 0
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader)):
-                batch = self.process_batch(
+                l1_loss, sdr_loss = self.process_batch(
                     batch,
                     is_train=False,
                     metrics=self.evaluation_metrics,
                 )
-                sum_loss_l1 += batch["l1_loss"].item() * len(batch[0])
-                sum_loss_sdr += batch["sdr_loss"].item() * len(batch[0])
+                sum_loss_l1 += l1_loss
+                sum_loss_sdr += sdr_loss
 
         sum_loss_l1 = sum_loss_l1 / len(dataloader)
         sum_loss_sdr = sum_loss_sdr / len(dataloader)
@@ -207,18 +208,6 @@ class Trainer(BaseTrainer):
             current = batch_idx
             total = self.len_epoch
         return base.format(current, total, 100.0 * current / total)
-
-    def _log_predictions(
-            self,
-            text,
-            log_probs,
-            log_probs_length,
-            audio_path,
-            examples_to_log=10,
-            *args,
-            **kwargs,
-    ):
-        raise NotImplementedError
 
 
     @torch.no_grad()
