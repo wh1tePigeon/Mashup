@@ -1,10 +1,13 @@
 import torch
 from torch.nn.utils import clip_grad_norm_
 from tqdm import tqdm
-
+import sys
+from pathlib import Path
 from source.base import BaseTrainer
 from source.utils import inf_loop, MetricTracker
 import numpy as np
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from source.utils.spec_utils import crop_center
 
 
 class Trainer(BaseTrainer):
@@ -31,7 +34,7 @@ class Trainer(BaseTrainer):
         self.skip_oom = skip_oom
         self.config = config
         self.train_dataloader = train_dataloader
-        self.evaluation_dataloaders = val_dataloader
+        self.val_dataloader = val_dataloader
 
         if len_epoch is None:
             # epoch-based training
@@ -44,28 +47,41 @@ class Trainer(BaseTrainer):
 
         self.lr_scheduler = lr_scheduler
         self.log_step = log_step
-
-        self.train_metrics = MetricTracker("l1_loss", "Model grad_norm")
-        self.evaluation_metrics = MetricTracker("mel_loss", "l1_loss")
+        self.step = 0
+        self.eval_interval = self.cfg.trainer.eval_interval
+        self.accum_step = self.cfg.trainer.accum_step
+        self.train_metrics = MetricTracker("l1_loss", "grad_norm")
+        self.evaluation_metrics = MetricTracker("sdr_loss", "l1_loss")
 
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
 
         X, y = batch
-        mask = self.model(X)
-        pred = X * mask
-        loss = self.criterion(pred, y)
 
         if is_train:
-            self.optimizer.zero_grad()
-            loss.backward()
-            self._clip_grad_norm()
-            self.optimizer.step()
-            #if self.lr_scheduler is not None:
-            #    self.lr_scheduler.step()
+            mask = self.model(X)
+            pred = X * mask
+            batch["l1_loss"] = self.criterion.l1(pred, y)
+            accum_loss = batch["l1_loss"] / self.accum_step
+            accum_loss.backward()
 
-        metrics.update("loss", loss.item())
+            if self.step % self.accum_step == 0:
+                self._clip_grad_norm()
+                self.optimizer.zero_grad()
+                self.optimizer.step()
+
+            self.step = self.step + 1
+
+        else:
+            y_pred = self.model.predict(X)
+
+            y_batch = crop_center(y_batch, y_pred)
+
+            batch["l1_loss"] = self.criterion.l1(y_pred, y_batch)
+            batch["sdr_loss"] = self.criterion.sdr(y_pred, y_batch)
+
+
         return batch
     
 
@@ -79,6 +95,7 @@ class Trainer(BaseTrainer):
         self.model.train()
         self.train_metrics.reset()
         self.writer.add_scalar("epoch", epoch)
+        sum_loss_l1 = 0
         for batch_idx, batch in enumerate(
                 tqdm(self.train_dataloader, desc="train", total=self.len_epoch)
         ):
@@ -88,6 +105,7 @@ class Trainer(BaseTrainer):
                     is_train=True,
                     metrics=self.train_metrics,
                 )
+                sum_loss_l1 += batch["l1_loss"].item() * len(batch[0])
             except RuntimeError as e:
                 if "out of memory" in str(e) and self.skip_oom:
                     self.logger.warning("OOM on batch. Skipping batch.")
@@ -98,30 +116,32 @@ class Trainer(BaseTrainer):
                     continue
                 else:
                     raise e
-            self.train_metrics.update("grad norm", self.get_grad_norm())
-            if batch_idx % self.log_step == 0:
-                self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
-                self.logger.debug(
-                    "Train Epoch: {} {} Loss: {:.6f}".format(
-                        epoch, self._progress(batch_idx), batch["loss"].item()
-                    )
-                )
-                self.writer.add_scalar(
-                    "learning rate", self.lr_scheduler.get_last_lr()[0]
-                )
-                self._log_scalars(self.train_metrics)
-                # we don't want to reset train metrics at the start of every epoch
-                # because we are interested in recent train metrics
-                last_train_metrics = self.train_metrics.result()
-                self.train_metrics.reset()
+            self.train_metrics.update("grad_norm", self.get_grad_norm())
+            
             if batch_idx >= self.len_epoch:
                 break
+
+        sum_loss_l1 = sum_loss_l1 / len(self.train_dataloader)
+        self.train_metrics.update("l1_loss", sum_loss_l1)
+        self.writer.set_step(self.step)
+        self.logger.debug(
+            "Train Epoch: {} {} l1_loss: {:.6f}".format(
+                epoch, self._progress(self.step), sum_loss_l1)
+        )
+        self.writer.add_scalar(
+            "learning rate", self.lr_scheduler.get_last_lr()[0]
+        )
+        self._log_scalars(self.train_metrics)
+        # we don't want to reset train metrics at the start of every epoch
+        # because we are interested in recent train metrics
+        last_train_metrics = self.train_metrics.result()
+        self.train_metrics.reset()
+
         log = last_train_metrics
 
-        
-        for part, dataloader in self.evaluation_dataloaders.items():
-            val_log = self._evaluation_epoch(epoch, part, dataloader)
-            log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
+        if epoch % self.eval_interval == 0:
+            val_log = self._evaluation_epoch(epoch, dataloader=self.val_dataloader)
+            log.update(**{f"{name}": value for name, value in val_log.items()})  
 
         return log
     
@@ -135,26 +155,26 @@ class Trainer(BaseTrainer):
         """
         self.model.eval()
         self.evaluation_metrics.reset()
-
+        sum_loss_l1 = 0
+        sum_loss_sdr = 0
         with torch.no_grad():
-            for batch_idx, batch in tqdm(
-                    enumerate(dataloader),
-                    desc=part,
-                    total=len(dataloader),
-            ):
+            for _, batch in tqdm(enumerate(dataloader)):
                 batch = self.process_batch(
                     batch,
                     is_train=False,
                     metrics=self.evaluation_metrics,
                 )
+                sum_loss_l1 += batch["l1_loss"].item() * len(batch[0])
+                sum_loss_sdr += batch["sdr_loss"].item() * len(batch[0])
 
+        sum_loss_l1 = sum_loss_l1 / len(dataloader)
+        sum_loss_sdr = sum_loss_sdr / len(dataloader)
 
-            self.writer.set_step(epoch * self.len_epoch, part)
-            self._log_scalars(self.evaluation_metrics)
+        self.writer.set_step(self.step)
+        self.evaluation_metrics.update("l1_loss", sum_loss_l1)
+        self.evaluation_metrics.update("sdr_loss", sum_loss_sdr)
+        self._log_scalars(self.evaluation_metrics)
 
-        # add histogram of model parameters to the tensorboard
-        for name, p in self.model.named_parameters():
-            self.writer.add_histogram(name, p, bins="auto")
         return self.evaluation_metrics.result()
     
 

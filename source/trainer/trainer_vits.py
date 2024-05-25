@@ -57,6 +57,7 @@ class Trainer(BaseTrainer):
 
         self.step = 0
         self.eval_interval = self.cfg.trainer.eval_interval
+        self.accum_step = self.cfg.trainer.accum_step
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("mel_loss")
@@ -162,6 +163,8 @@ class Trainer(BaseTrainer):
         self.logger.info(
             "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
         )
+
+        
     @staticmethod
     def move_batch_to_device(batch, device: torch.device):
         """
@@ -236,10 +239,10 @@ class Trainer(BaseTrainer):
             batch["loss_g"].backward()
             batch["disc_loss"].backward()
 
-            if ((self.step + 1) % self.cfg.trainer.accum_step == 0):
+            if ((self.step + 1) % self.accum_step == 0):
                 # accumulate gradients for accum steps
                 for param in self.model.parameters():
-                    param.grad /= self.cfg.trainer.accum_step
+                    param.grad /= self.accum_step
                 self._clip_grad_norm(self.model)
                 # update model
                 self.gen_optimizer.zero_grad()
