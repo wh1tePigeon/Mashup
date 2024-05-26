@@ -55,9 +55,11 @@ class Trainer(BaseTrainer):
 
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
-        batch = self.move_batch_to_device(batch, self.device)
+        #batch = self.move_batch_to_device(batch, self.device)
 
         X, y = batch
+        X = X.to(self.device)
+        y = y.to(self.device)
 
         if is_train:
             mask = self.model(X)
@@ -76,12 +78,12 @@ class Trainer(BaseTrainer):
             return l1_loss.item() * len(X)
 
         else:
-            y_pred = self.model.predict(X)
+            pred = self.model.predict(X)
 
-            y_batch = crop_center(y_batch, y_pred)
+            y = crop_center(y, pred)
 
-            l1_loss = self.criterion.l1(y_pred, y_batch)
-            sdr_loss = self.criterion.sdr(y_pred, y_batch)
+            l1_loss = self.criterion.l1(pred, y)
+            sdr_loss = self.criterion.sdr(pred, y)
 
             return l1_loss.item() * len(X), sdr_loss.item() * len(X)
     
@@ -147,7 +149,7 @@ class Trainer(BaseTrainer):
         return log
     
 
-    def _evaluation_epoch(self, epoch, part, dataloader):
+    def _evaluation_epoch(self, epoch, dataloader):
         """
         Validate after training an epoch
 
