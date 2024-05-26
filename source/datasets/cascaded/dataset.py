@@ -255,14 +255,6 @@ def get_oracle_data(X, y, oracle_loss, oracle_rate, oracle_drop_rate):
     return oracle_X, oracle_y, indices
 
 
-def get_trainset():
-    return 0
-
-
-def get_valset():
-    return 0
-
-
 def get_dataloaders(cfg):
     train_cfg = cfg["train"]
     val_cfg = cfg["val"]
