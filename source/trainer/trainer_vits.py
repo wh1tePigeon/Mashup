@@ -257,8 +257,8 @@ class Trainer(BaseTrainer):
             for loss_name in self.loss_names:
                 self.train_metrics.update(loss_name, batch[loss_name].item())
 
-            #self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
-            #self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
+            self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
+            self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
 
         else:
             if hasattr(self.model, 'module'):
@@ -289,7 +289,7 @@ class Trainer(BaseTrainer):
 
         with torch.no_grad():
             mel_loss = 0
-            for _, batch in tqdm(enumerate(dataloader)):
+            for _, batch in tqdm(enumerate(dataloader), desc="val", total=len(dataloader),):
                 batch = self.process_batch(batch, False, metrics=self.evaluation_metrics)
                 mel_loss += batch["mel_loss"].item()
 
@@ -311,11 +311,12 @@ class Trainer(BaseTrainer):
         :return: A log that contains average loss and metric in this epoch.
         """
         self.model.train()
+        self.disc.train()
         self.train_metrics.reset()
         self.writer.add_scalar("epoch", epoch)
         self.train_dataloader.batch_sampler.set_epoch(epoch)
-        bar = tqdm(range(self.len_epoch), desc="train")
-        for batch_idx, batch in enumerate(self.train_dataloader):
+        #bar = tqdm(range(self.len_epoch), desc="train")
+        for batch_idx, batch in enumerate(tqdm(self.train_dataloader, desc="train", total=self.len_epoch)):
             try:
                 batch = self.process_batch(batch, True, metrics=self.train_metrics)
             except RuntimeError as e:
@@ -332,8 +333,8 @@ class Trainer(BaseTrainer):
             if self.step % self.log_step == 0:
                 self.writer.set_step(self.step)
                 self.logger.debug(
-                    "Train Epoch: {} {} Gen loss: {:.6f} Disc loss: {:.6f}".format(
-                        epoch, self._progress(self.step), batch["gen_loss"].item(), batch["disc_loss"].item()
+                    "Train Epoch: {} {} Gen loss: {:.6f} Disc loss: {:.6f} loss_g: {:.6f}".format(
+                        epoch, self._progress(self.step), batch["gen_loss"].item(), batch["disc_loss"].item(), batch["loss_g"].item()
                     )
                 )
                 self.writer.add_scalar("disc learning rate", self.disc_lr_scheduler.get_last_lr()[0])
@@ -344,7 +345,7 @@ class Trainer(BaseTrainer):
                 # because we are interested in recent train metrics
                 last_train_metrics = self.train_metrics.result()
                 self.train_metrics.reset()
-                bar.update(self.log_step)
+                #bar.update(self.log_step)
 
             if batch_idx + 1 >= self.len_epoch:
                 break

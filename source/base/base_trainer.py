@@ -235,11 +235,14 @@ class BaseTrainer:
             parameters = [parameters]
         parameters = [p for p in parameters if p.grad is not None]
 
-        total_norm = torch.norm(
-            torch.stack([torch.norm(torch.nan_to_num(p.grad.detach(), nan=0), norm_type).cpu() for p in parameters]),
-            norm_type,
-        )
-        return total_norm.item()
+        if len(parameters) != 0:
+            total_norm = torch.norm(
+                torch.stack([torch.norm(torch.nan_to_num(p.grad.detach(), nan=0), norm_type).cpu() for p in parameters]),
+                norm_type,
+            )
+            return total_norm.item()
+        
+        return 0
 
     def _log_scalars(self, metric_tracker: MetricTracker):
         if self.writer is None:
