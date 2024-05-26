@@ -58,7 +58,7 @@ class Trainer(BaseTrainer):
         self.step = 0
         self.eval_interval = self.cfg.trainer.eval_interval
         self.accum_step = self.cfg.trainer.accum_step
-        self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss"]
+        self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("mel_loss")
 
@@ -257,27 +257,27 @@ class Trainer(BaseTrainer):
             for loss_name in self.loss_names:
                 self.train_metrics.update(loss_name, batch[loss_name].item())
 
-            self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
-            self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
+            #self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
+            #self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
 
         else:
             if hasattr(self.model, 'module'):
                 fake_audio = self.model.module.infer(batch["ppg"], batch["vec"], batch["pit"],
                                                      batch["spk"], batch["ppg_l"])[
-                    :, :, :audio.size(2)]
+                    :, :, :batch["audio"].size(2)]
             else:
                 fake_audio = self.model.infer(batch["ppg"], batch["vec"], batch["pit"],
                                                      batch["spk"], batch["ppg_l"])[
-                    :, :, :audio.size(2)]
+                    :, :, :batch["audio"].size(2)]
                 
             self.cfg.mel.device = self.device.type
             mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
-            mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
+            mel_real = mel_spectrogram(self.cfg.mel, batch["audio"].squeeze(1))
             batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real)
 
         return batch
 
-    def _evaluation_epoch(self, epoch, part, dataloader):
+    def _evaluation_epoch(self, epoch, dataloader):
         """
         Validate after training an epoch
 
