@@ -1,3 +1,4 @@
+import os
 import sys
 import torch
 import torch.nn as nn
@@ -55,6 +56,9 @@ class Trainer(BaseTrainer):
             self.train_dataloader = inf_loop(self.train_dataloader)
             self.len_epoch = len_epoch
 
+        if self.cfg.trainer.log_step is None:
+            self.log_step = self.len_epoch - 1
+
         self.step = 0
         self.eval_interval = self.cfg.trainer.eval_interval
         self.accum_step = self.cfg.trainer.accum_step
@@ -83,7 +87,8 @@ class Trainer(BaseTrainer):
             "config": self.config,
             "monitor_best": self.mnt_best
             }
-        filename = str(self.checkpoint_dir / "checkpoint-epoch{}.pth".format(epoch))
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        filename = os.path.join(self.checkpoint_dir, "checkpoint-epoch{}.pth".format(epoch))
         if not (only_best and save_best):
             torch.save(state, filename)
             self.logger.info("Saving checkpoint: {} ...".format(filename))

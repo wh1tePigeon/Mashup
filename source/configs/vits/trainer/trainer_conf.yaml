@@ -1,13 +1,13 @@
 epochs: 300
-save_dir: saved/
-save_period: 5
+save_dir: "$ROOT/saved"
+save_period: 1
 eval_interval: 1
 verbosity: 2
 early_stop: 65
 visualize: wandb
 wandb_project: vits
 len_epoch:
-log_step: 50
+log_step:
 grad_norm_clip: 10
 beam_size: 5
 accum_step: 2

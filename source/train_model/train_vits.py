@@ -3,14 +3,14 @@ import sys
 import hydra
 import numpy as np
 import torch
-
+import os
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from source.trainer.trainer_vits import Trainer
 from source.datasets.vits.vits_dataloaders import create_dataloader_train, create_dataloader_eval
-from source.utils.util import get_logger, prepare_device, CONFIGS_PATH
+from source.utils.util import get_logger, prepare_device, CONFIGS_PATH, resolve_paths
 from source.utils.object_loading import get_dataloaders
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -33,6 +33,7 @@ def get_params_count(model_):
 
 @hydra.main(config_path=str(CONFIG_VITS_PATH), config_name="main")
 def train(cfg: DictConfig):
+    cfg = resolve_paths(cfg, os.environ['ROOT'])
     train_dataloader = create_dataloader_train(cfg.dataset, cfg.n_gpu, 0)
     val_dataloader = create_dataloader_eval(cfg.dataset)
 
@@ -90,4 +91,5 @@ def train(cfg: DictConfig):
 
 
 if __name__ == "__main__":
+    os.environ['ROOT'] = "/home/comp/Рабочий стол/Mashup"
     train()
