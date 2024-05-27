@@ -1,6 +1,6 @@
-dataset_dir: "/home/comp/Рабочий стол/cascaded_test"
-split_mode: "random"
-val_rate: 0.2
+dataset_dir: "$ROOT/cascaded_dataset"
+split_mode: "subdirs"
+val_rate:
 sr: 44100
 hop_length: 1024
 n_fft: 2048
@@ -18,8 +18,9 @@ train:
 
 
 val:
-  batch_size: 8
+  batch_size: 2
   num_workers: 16
   shuffle: False
   cropsize: 256
   offset:
+  filelist: #"$ROOT/cascaded_dataset/val_files.csv"

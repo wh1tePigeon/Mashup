@@ -51,7 +51,7 @@ class Trainer(BaseTrainer):
         self.eval_interval = self.config.trainer.eval_interval
         self.accum_step = self.config.trainer.accum_step
         self.train_metrics = MetricTracker("l1_loss", "grad_norm")
-        self.evaluation_metrics = MetricTracker("sdr_loss", "l1_loss")
+        self.evaluation_metrics = MetricTracker("sdr_loss_val", "l1_loss_val")
 
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
@@ -69,7 +69,7 @@ class Trainer(BaseTrainer):
             accum_loss.backward()
 
             if self.step % self.accum_step == 0:
-                self._clip_grad_norm()
+                #self._clip_grad_norm()
                 self.optimizer.zero_grad()
                 self.optimizer.step()
 
@@ -174,8 +174,8 @@ class Trainer(BaseTrainer):
         sum_loss_sdr = sum_loss_sdr / len(dataloader)
 
         self.writer.set_step(self.step)
-        self.evaluation_metrics.update("l1_loss", sum_loss_l1)
-        self.evaluation_metrics.update("sdr_loss", sum_loss_sdr)
+        self.evaluation_metrics.update("l1_loss_val", sum_loss_l1)
+        self.evaluation_metrics.update("sdr_loss_val", sum_loss_sdr)
         self._log_scalars(self.evaluation_metrics)
 
         return self.evaluation_metrics.result()
@@ -231,3 +231,29 @@ class Trainer(BaseTrainer):
             return
         for metric_name in metric_tracker.keys():
             self.writer.add_scalar(f"{metric_name}", metric_tracker.avg(metric_name))
+
+    
+    def _from_pretrained(self, pretrained_path):
+        """
+        Start from saved checkpoints
+
+        :param pretrained_path: Checkpoint path to be resumed
+        """
+        pretrained_path = str(pretrained_path)
+        self.logger.info("Loading checkpoint: {} ...".format(pretrained_path))
+        checkpoint = torch.load(pretrained_path, self.device)
+        #self.mnt_best = checkpoint["monitor_best"]
+
+        # load architecture params from checkpoint.
+        # if checkpoint["config"]["arch"] != self.config["arch"]:
+        #     self.logger.warning(
+        #         "Warning: Architecture configuration given in config file is different from that "
+        #         "of checkpoint. This may yield an exception while state_dict is being loaded."
+        #     )
+        
+        # load optimizer state (accumulated gradients)
+        self.model.load_state_dict(checkpoint)
+
+        self.logger.info(
+            "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
+        )

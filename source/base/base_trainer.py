@@ -1,5 +1,5 @@
 from abc import abstractmethod
-
+import os
 import torch
 from numpy import inf
 
@@ -156,7 +156,8 @@ class BaseTrainer:
             "monitor_best": self.mnt_best,
             "config": self.config,
         }
-        filename = str(self.checkpoint_dir / "checkpoint-epoch{}.pth".format(epoch))
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        filename = os.path.join(self.checkpoint_dir, "checkpoint-epoch{}.pth".format(epoch))
         if not (only_best and save_best):
             torch.save(state, filename)
             self.logger.info("Saving checkpoint: {} ...".format(filename))

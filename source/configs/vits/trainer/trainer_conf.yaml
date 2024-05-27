@@ -1,5 +1,5 @@
 epochs: 300
-save_dir: "$ROOT/saved"
+save_dir: "$ROOT/saved/vits"
 save_period: 1
 eval_interval: 1
 verbosity: 2

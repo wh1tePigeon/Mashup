@@ -6,6 +6,7 @@ import torch
 import torch.utils.data
 from tqdm import tqdm
 from source.utils.spec_utils import cache_or_load, spectrogram_to_image
+import csv
 
 
 class VocalRemoverTrainingSet(torch.utils.data.Dataset):
@@ -255,11 +256,10 @@ def get_oracle_data(X, y, oracle_loss, oracle_rate, oracle_drop_rate):
     return oracle_X, oracle_y, indices
 
 
-def get_dataloaders(cfg):
+def get_dataloaders(cfg, val_filelist):
     train_cfg = cfg["train"]
     val_cfg = cfg["val"]
 
-    val_filelist = []
     train_filelist, val_filelist = train_val_split(
         dataset_dir=cfg["dataset_dir"],
         split_mode=cfg["split_mode"],
@@ -292,6 +292,7 @@ def get_dataloaders(cfg):
         mixup_rate=train_cfg["mixup_rate"],
         mixup_alpha=train_cfg["mixup_alpha"]
     )
+
 
     patch_list = make_validation_set(
         filelist=val_filelist,
