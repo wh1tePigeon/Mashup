@@ -55,8 +55,6 @@ class Trainer(BaseTrainer):
 
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
-        #batch = self.move_batch_to_device(batch, self.device)
-
         X, y = batch
         X = X.to(self.device)
         y = y.to(self.device)
@@ -161,7 +159,7 @@ class Trainer(BaseTrainer):
         sum_loss_l1 = 0
         sum_loss_sdr = 0
         with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataloader)):
+            for _, batch in tqdm(enumerate(dataloader), desc="val", total=len(dataloader)):
                 l1_loss, sdr_loss = self.process_batch(
                     batch,
                     is_train=False,
