@@ -81,9 +81,17 @@ class Trainer(BaseTrainer):
             y = crop_center(y, pred)
 
             l1_loss = self.criterion.l1(pred, y)
-            sdr_loss = self.criterion.sdr(pred, y)
+            
+            #idky but this doesn`t work
+            #sdr_loss = self.criterion.sdr(pred, y)
 
-            return l1_loss.item() * len(X), sdr_loss.item() * len(X)
+            sdr = (y * pred).sum()
+            norm_t = torch.linalg.norm(y)
+            norm_p = torch.linalg.norm(pred)
+            mul = norm_t * norm_p + 1e-8
+            sdr = sdr / mul
+
+            return l1_loss.item() * len(X), sdr.item() * len(X)
     
 
     def _train_epoch(self, epoch):
@@ -122,7 +130,7 @@ class Trainer(BaseTrainer):
             if batch_idx >= self.len_epoch:
                 break
 
-        sum_loss_l1 = sum_loss_l1 / len(self.train_dataloader)
+        sum_loss_l1 = sum_loss_l1 / len(self.train_dataloader.dataset)
         self.train_metrics.update("l1_loss", sum_loss_l1)
         self.writer.set_step(self.step)
         self.logger.debug(
@@ -168,8 +176,8 @@ class Trainer(BaseTrainer):
                 sum_loss_l1 += l1_loss
                 sum_loss_sdr += sdr_loss
 
-        sum_loss_l1 = sum_loss_l1 / len(dataloader)
-        sum_loss_sdr = sum_loss_sdr / len(dataloader)
+        sum_loss_l1 = sum_loss_l1 / len(dataloader.dataset)
+        sum_loss_sdr = sum_loss_sdr / len(dataloader.dataset)
 
         self.writer.set_step(self.step)
         self.evaluation_metrics.update("l1_loss_val", sum_loss_l1)
