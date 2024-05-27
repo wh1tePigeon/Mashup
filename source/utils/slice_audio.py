@@ -110,10 +110,10 @@ def slice(dirpath: str, ouput_dir: str, min_duration: float, max_duration: float
 
 if __name__ == "__main__":
     cfg = {
-        "dirpath" : "/home/comp/Рабочий стол/vm3/user382136737",
-        "ouput_dir" : "/home/comp/Рабочий стол/output",
-        "min_duration" : 2.0,
-        "max_duration" : 25.0,
+        "dirpath" : "/home/comp/Рабочий стол/data",
+        "ouput_dir" : "/home/comp/Рабочий стол/pg_output",
+        "min_duration" : 4.0,
+        "max_duration" : 20.0,
         "vad_cfg" :  {
         "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/vad",
         "activation_th" : 0.8,

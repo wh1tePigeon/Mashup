@@ -4,6 +4,9 @@ import demucs.api
 import torchaudio as ta
 import pandas as pd
 from pathlib import Path
+import numpy as np
+import librosa
+import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.inference.cascaded.inference_cascaded import inference_cascaded
 from source.inference.bsrnn.inference_bsrnn import inference_bsrnn
@@ -24,11 +27,13 @@ def separate_with_bsrnn_speech(filepath, model_cfg):
 
 
 def separate_with_hybdemucs(filepath, model_cfg):
-    #model_cfg["filepath"] = filepath
-    audio, sr = ta.load(filepath)
-    if sr != 44100:
-        audio = ta.functional.resample(audio, sr, 44100)
-        sr = 44100
+    sr = 44100
+    audio, sr = librosa.load(
+    filepath, sr=sr, mono=False, dtype=np.float32, res_type='kaiser_fast')
+    if audio.ndim == 1:
+        # mono to stereo
+        audio = np.asarray([audio, audio])
+    audio = torch.from_numpy(audio)
     #separator = demucs.api.Separator(repo=Path(model_cfg["checkpoint_path"]))
     separator = demucs.api.Separator()
     origin, separated = separator.separate_tensor(audio)
@@ -111,8 +116,8 @@ if __name__ == "__main__":
     }
 
     cfg_hybdemucs = {
-        "dirpath" : "/home/comp/Рабочий стол/denoise",
-        "ouput_dir" : "/home/comp/Рабочий стол/denoised",
+        "dirpath" : "/home/comp/Рабочий стол/pg_output",
+        "ouput_dir" : "/home/comp/Рабочий стол/pg_denoised",
         "model_type" : "hybdemucs",
         "model_cfg" :  {
             "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/htdemucs",
@@ -140,4 +145,4 @@ if __name__ == "__main__":
 
     }
 
-    separate(**cfg_bsrnn_speech)
+    separate(**cfg_hybdemucs)
