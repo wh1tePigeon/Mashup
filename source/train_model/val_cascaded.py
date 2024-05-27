@@ -92,6 +92,8 @@ def val(cfg: DictConfig):
     )
     trainer._evaluation_epoch(1, val_dataloader)
 
+    trainer.train()
+
 
 if __name__ == "__main__":
     os.environ['ROOT'] = "/home/comp/Рабочий стол/Mashup"
