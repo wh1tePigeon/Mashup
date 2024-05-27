@@ -9,7 +9,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.model.vits.modules.commons import slice_segments
 from source.utils.spec_utils import mel_spectrogram
-from source.loss.vits.vits_losses import MultiResolutionSTFTLoss
 
 
 class Trainer(BaseTrainer):
@@ -62,6 +61,7 @@ class Trainer(BaseTrainer):
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("mel_loss")
+
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
         """

@@ -22,11 +22,14 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
+
 CONFIG_VITS_PATH = CONFIGS_PATH / 'vits'
+
 
 def get_params_count(model_):
     model_parameters = filter(lambda p: p.requires_grad, model_.parameters())
     return sum([np.prod(p.size()) for p in model_parameters])
+
 
 @hydra.main(config_path=str(CONFIG_VITS_PATH), config_name="main")
 def train(cfg: DictConfig):

@@ -4,6 +4,12 @@ import random
 import torch
 import torch.utils.data
 import torchaudio as ta
+from scipy.io.wavfile import read
+
+
+def load_wav_to_torch(full_path):
+    sampling_rate, data = read(full_path)
+    return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
 def load_filepaths(filename, split="|"):
@@ -51,11 +57,20 @@ class TextAudioSpeakerSet(torch.utils.data.Dataset):
         self.items = items_new
         self.lengths = lengths
 
+    # i spent ~12h debugging this, cause somehow nothing works with torchaudio ¯\_(ツ)_/¯
+    # def read_wav(self, filename):
+    #     audio, sampling_rate = ta.load(filename)
+    #     assert sampling_rate == self.sampling_rate, f"error: this sample rate of {filename} is {sampling_rate}"
+    #     audio_norm = audio / self.max_wav_value
+    #     return audio_norm
+
     def read_wav(self, filename):
-        audio, sampling_rate = ta.load(filename)
+        audio, sampling_rate = load_wav_to_torch(filename)
         assert sampling_rate == self.sampling_rate, f"error: this sample rate of {filename} is {sampling_rate}"
         audio_norm = audio / self.max_wav_value
+        audio_norm = audio_norm.unsqueeze(0)
         return audio_norm
+
 
     def __getitem__(self, index):
         return self.my_getitem(index)

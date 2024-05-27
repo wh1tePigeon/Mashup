@@ -4,14 +4,13 @@ import librosa
 import torchcrepe
 
 
-f0_bin = 256
-f0_max = 1100.0
-f0_min = 50.0
-f0_mel_min = 1127 * np.log(1 + f0_min / 700)
-f0_mel_max = 1127 * np.log(1 + f0_max / 700)
-
-
 def f0_to_coarse(f0):
+    f0_bin = 256
+    f0_max = 1100.0
+    f0_min = 50.0
+    f0_mel_min = 1127 * np.log(1 + f0_min / 700)
+    f0_mel_max = 1127 * np.log(1 + f0_max / 700)
+
     is_torch = isinstance(f0, torch.Tensor)
     f0_mel = 1127 * (1 + f0 / 700).log() if is_torch else 1127 * \
         np.log(1 + f0 / 700)
