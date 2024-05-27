@@ -64,7 +64,7 @@ class Trainer(BaseTrainer):
         self.accum_step = self.cfg.trainer.accum_step
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
-        self.evaluation_metrics = MetricTracker("mel_loss")
+        self.evaluation_metrics = MetricTracker("f1_mel_loss_val")
 
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
@@ -302,7 +302,7 @@ class Trainer(BaseTrainer):
             mel_loss = mel_loss / len(dataloader)
 
             self.writer.set_step(self.step)
-            self.evaluation_metrics.update("mel_loss", mel_loss)
+            self.evaluation_metrics.update("f1_mel_loss_val", mel_loss)
             # self._log_predictions(**batch)
             # self._log_spectrogram(batch["spectrogram"])
             self._log_scalars(self.evaluation_metrics)
