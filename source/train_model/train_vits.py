@@ -92,4 +92,5 @@ def train(cfg: DictConfig):
 
 if __name__ == "__main__":
     os.environ['ROOT'] = "/home/comp/Рабочий стол/Mashup"
+    #os.environ['ROOT'] = "/content/Mashup"
     train()

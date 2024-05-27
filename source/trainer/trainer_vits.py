@@ -199,7 +199,7 @@ class Trainer(BaseTrainer):
         batch = self.move_batch_to_device(batch, self.device)
         
         if is_train:
-            self.gen_optimizer.zero_grad()
+            #self.gen_optimizer.zero_grad()
 
             # generator
             batch["fake_audio"], ids_slice, z_mask, \
@@ -239,14 +239,18 @@ class Trainer(BaseTrainer):
             
             batch["loss_g"].backward()
             self.clip_grad_value_(self.model.parameters(),  None)
-            self.gen_optimizer.step()
+            #self.gen_optimizer.step()
             
 
-            # if ((self.step + 1) % self.accum_step == 0):
-            #     # accumulate gradients for accum steps
-            #     for param in self.model.parameters():
-            #         param.grad /= self.accum_step
-            #     # update model
+            if ((self.step + 1) % self.accum_step == 0):
+                # accumulate gradients for accum steps
+                for param in self.model.parameters():
+                    param.grad /= self.accum_step
+                # update model
+                self.clip_grad_value_(self.model.parameters(),  None)
+                # update model
+                self.gen_optimizer.step()
+                self.gen_optimizer.zero_grad()
                 
 
             # discriminator
