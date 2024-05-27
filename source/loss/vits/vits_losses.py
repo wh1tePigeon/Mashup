@@ -145,20 +145,6 @@ class VitsLoss(torch.nn.Module):
 
 
     def discriminator_loss(self, disc_real, disc_fake):
-        # loss = 0
-        # r_losses = []
-        # g_losses = []
-        # for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
-        #     dr = dr.float()
-        #     dg = dg.float()
-        #     r_loss = torch.mean((1 - dr) ** 2)
-        #     g_loss = torch.mean(dg**2)
-        #     loss += r_loss + g_loss
-        #     r_losses.append(r_loss.item())
-        #     g_losses.append(g_loss.item())
-
-        # return loss, r_losses, g_losses
-
         loss_d = 0.0
         for (_, score_fake), (_, score_real) in zip(disc_fake, disc_real):
             loss_d += torch.mean(torch.pow(score_real - 1.0, 2))

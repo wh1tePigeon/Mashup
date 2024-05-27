@@ -228,6 +228,7 @@ class BaseTrainer:
             "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
         )
 
+
     @torch.no_grad()
     def get_grad_norm(self, submodel, norm_type=2):
         parameters = submodel.parameters()

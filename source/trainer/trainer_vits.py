@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.model.vits.modules.commons import slice_segments
 from source.utils.spec_utils import mel_spectrogram
+from source.loss.vits.vits_losses import MultiResolutionSTFTLoss
 
 
 class Trainer(BaseTrainer):
@@ -71,8 +72,8 @@ class Trainer(BaseTrainer):
         """
         arch = type(self.model).__name__
         state = {
-            'gen': (self.model.module if self.cfg.num_gpu > 1 else self.model).state_dict(),
-            'disc': (self.disc.module if self.cfg.num_gpu > 1 else self.disc).state_dict(),
+            'gen': (self.model.module if self.cfg.n_gpu > 1 else self.model).state_dict(),
+            'disc': (self.disc.module if self.cfg.n_gpu > 1 else self.disc).state_dict(),
             'optim_g': self.gen_optimizer.state_dict(),
             'optim_d': self.disc_optimizer.state_dict(),
             'scheduler_g' : self.gen_lr_scheduler.state_dict(),
@@ -193,32 +194,34 @@ class Trainer(BaseTrainer):
         batch = self.move_batch_to_device(batch, self.device)
         
         if is_train:
+            self.gen_optimizer.zero_grad()
+
             # generator
-            fake_audio, ids_slice, z_mask, \
+            batch["fake_audio"], ids_slice, z_mask, \
                 (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
                     batch["ppg"], batch["vec"], batch["pit"], batch["spec"], batch["spk"], batch["ppg_l"], batch["spec_l"])
 
-            audio = slice_segments(
+            batch["audio"] = slice_segments(
                 batch["audio"], ids_slice * self.cfg["dataset"]["hop_length"], self.cfg["dataset"]["segment_size"])  # slice
             # Spk Loss
             batch["spk_loss"] = self.criterion.spk_loss(batch["spk"], spk_preds, torch.Tensor(spk_preds.size(0))
                                 .to(self.device).fill_(1.0))
             # Mel Loss
             self.cfg.mel.device = self.device.type
-            mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
-            mel_real = mel_spectrogram(self.cfg.mel, audio.squeeze(1))
+            mel_fake = mel_spectrogram(self.cfg.mel, batch["fake_audio"].squeeze(1))
+            mel_real = mel_spectrogram(self.cfg.mel, batch["audio"].squeeze(1))
             batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real) * self.cfg.trainer.c_mel
 
             # Multi-Resolution STFT Loss
-            sc_loss, mag_loss = self.criterion.stft_loss(fake_audio.squeeze(1), audio.squeeze(1))
+            sc_loss, mag_loss = self.criterion.stft_loss(batch["fake_audio"].squeeze(1), batch["audio"].squeeze(1))
             batch["stft_loss"] = (sc_loss + mag_loss) *  self.cfg.trainer.c_stft
 
             # Generator Loss
-            disc_fake = self.disc(fake_audio)
+            disc_fake = self.disc(batch["fake_audio"])
             batch["gen_loss"], _ = self.criterion.generator_loss(disc_fake)
 
             # Feature Loss
-            disc_real = self.disc(audio)
+            disc_real = self.disc(batch["audio"])
             batch["feat_loss"] = self.criterion.feature_loss(disc_fake, disc_real)
 
             # Kl Loss
@@ -229,29 +232,27 @@ class Trainer(BaseTrainer):
             batch["loss_g"] = batch["gen_loss"] + batch["feat_loss"] + batch["mel_loss"] + batch["stft_loss"] + \
                 batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
             
-            # discriminator
-            disc_fake = self.disc(fake_audio.detach())
-            disc_real = self.disc(audio)
-
-            batch["disc_loss"] = self.criterion.discriminator_loss(disc_real, disc_fake)
-        
-        
             batch["loss_g"].backward()
-            batch["disc_loss"].backward()
+            self.clip_grad_value_(self.model.parameters(),  None)
+            self.gen_optimizer.step()
+            
 
-            if ((self.step + 1) % self.accum_step == 0):
-                # accumulate gradients for accum steps
-                for param in self.model.parameters():
-                    param.grad /= self.accum_step
-                self._clip_grad_norm(self.model)
-                # update model
-                self.gen_optimizer.zero_grad()
-                self.gen_optimizer.step()
+            # if ((self.step + 1) % self.accum_step == 0):
+            #     # accumulate gradients for accum steps
+            #     for param in self.model.parameters():
+            #         param.grad /= self.accum_step
+            #     # update model
                 
-            self._clip_grad_norm(self.disc)
-            self.disc_optimizer.zero_grad()
-            self.disc_optimizer.step()
 
+            # discriminator
+            self.disc_optimizer.zero_grad()
+            disc_fake = self.disc(batch["fake_audio"].detach())
+            disc_real = self.disc(batch["audio"])
+            batch["disc_loss"] = self.criterion.discriminator_loss(disc_real, disc_fake)
+
+            batch["disc_loss"].backward()
+            self.clip_grad_value_(self.disc.parameters(),  None)
+            self.disc_optimizer.step()
             self.step = self.step + 1
 
             for loss_name in self.loss_names:
@@ -262,16 +263,16 @@ class Trainer(BaseTrainer):
 
         else:
             if hasattr(self.model, 'module'):
-                fake_audio = self.model.module.infer(batch["ppg"], batch["vec"], batch["pit"],
+                batch["fake_audio"] = self.model.module.infer(batch["ppg"], batch["vec"], batch["pit"],
                                                      batch["spk"], batch["ppg_l"])[
                     :, :, :batch["audio"].size(2)]
             else:
-                fake_audio = self.model.infer(batch["ppg"], batch["vec"], batch["pit"],
+                batch["fake_audio"] = self.model.infer(batch["ppg"], batch["vec"], batch["pit"],
                                                      batch["spk"], batch["ppg_l"])[
                     :, :, :batch["audio"].size(2)]
                 
             self.cfg.mel.device = self.device.type
-            mel_fake = mel_spectrogram(self.cfg.mel, fake_audio.squeeze(1))
+            mel_fake = mel_spectrogram(self.cfg.mel, batch["fake_audio"].squeeze(1))
             mel_real = mel_spectrogram(self.cfg.mel, batch["audio"].squeeze(1))
             batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real)
 
@@ -325,6 +326,9 @@ class Trainer(BaseTrainer):
                     for p in self.model.parameters():
                         if p.grad is not None:
                             del p.grad  # free some memory
+                    for p in self.disc.parameters():
+                        if p.grad is not None:
+                            del p.grad  # free some memory
                     torch.cuda.empty_cache()
                     continue
                 else:
@@ -361,3 +365,21 @@ class Trainer(BaseTrainer):
             val_log = self._evaluation_epoch(epoch, dataloader=self.val_dataloader)
             log.update(**{f"{name}": value for name, value in val_log.items()})        
         return log
+    
+
+    def clip_grad_value_(self, parameters, clip_value, norm_type=2):
+        if isinstance(parameters, torch.Tensor):
+            parameters = [parameters]
+        parameters = list(filter(lambda p: p.grad is not None, parameters))
+        norm_type = float(norm_type)
+        if clip_value is not None:
+            clip_value = float(clip_value)
+
+        total_norm = 0
+        for p in parameters:
+            param_norm = p.grad.data.norm(norm_type)
+            total_norm += param_norm.item() ** norm_type
+            if clip_value is not None:
+                p.grad.data.clamp_(min=-clip_value, max=clip_value)
+        total_norm = total_norm ** (1.0 / norm_type)
+        return total_norm
