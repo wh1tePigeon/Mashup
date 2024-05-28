@@ -3,6 +3,8 @@ import sys
 import torch
 import torch.nn as nn
 import pandas as pd
+import random
+import PIL
 from tqdm import tqdm
 from source.base import BaseTrainer
 from source.utils import inf_loop, MetricTracker
@@ -10,6 +12,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.model.vits.modules.commons import slice_segments
 from source.utils.spec_utils import mel_spectrogram
+from source.logger.utils import plot_spectrogram_to_buf
+from torchvision.transforms import ToTensor
 
 
 class Trainer(BaseTrainer):
@@ -65,6 +69,7 @@ class Trainer(BaseTrainer):
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g", "feat_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("f1_mel_loss_val")
+        #self.metrics = MetricTracker()
 
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
@@ -180,20 +185,32 @@ class Trainer(BaseTrainer):
             batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
         return batch
 
-    # @torch.no_grad()
-    # def _log_predictions(self, pred, target, examples_to_log=3, **kwargs):
-    #     rows = {}
-    #     i = 0
-    #     for pred, target in zip(pred, target):
-    #         if i >= examples_to_log:
-    #             break
-    #         rows[i] = {
-    #             "pred": self.writer.wandb.Audio(pred.cpu().squeeze().numpy(), sample_rate=DEFAULT_SR),
-    #             "target": self.writer.wandb.Audio(target.cpu().squeeze().numpy(), sample_rate=DEFAULT_SR),
-    #         }
-    #         i += 1
 
-    #     self.writer.add_table("logs", pd.DataFrame.from_dict(rows, orient="index"))
+    @torch.no_grad()
+    def _log_predictions(self, pred, target, examples_to_log=1, **kwargs):
+        rows = {}
+        i = 0
+        for pred, target in zip(pred, target):
+            if i >= examples_to_log:
+                break
+            rows[i] = {
+                "fake_audio": self.writer.wandb.Audio(pred.cpu().squeeze().numpy(), sample_rate=self.cfg.dataset.sampling_rate),
+                "real_audio": self.writer.wandb.Audio(target.cpu().squeeze().numpy(), sample_rate=self.cfg.dataset.sampling_rate),
+            }
+            i += 1
+
+        self.writer.add_table("logs", pd.DataFrame.from_dict(rows, orient="index"))
+
+
+    def _log_spectrogram(self, mel_fake, mel_real):
+        i = random.randint(0, mel_fake.shape[0] - 1)
+        mel_fake_log = mel_fake[i].to("cpu")
+        mel_real_log = mel_real[i].to("cpu")
+        image_fake = PIL.Image.open(plot_spectrogram_to_buf(mel_fake_log))
+        image_real = PIL.Image.open(plot_spectrogram_to_buf(mel_real_log))
+        self.writer.add_image("fake_mel_val", ToTensor()(image_fake))
+        self.writer.add_image("real_mel_val", ToTensor()(image_real))
+
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
         batch = self.move_batch_to_device(batch, self.device)
@@ -265,10 +282,9 @@ class Trainer(BaseTrainer):
             self.step = self.step + 1
 
             for loss_name in self.loss_names:
-                self.train_metrics.update(loss_name, batch[loss_name].item())
+                metrics.update(loss_name, batch[loss_name].item())
 
-            self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
-            self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
+            
 
         else:
             if hasattr(self.model, 'module'):
@@ -281,9 +297,9 @@ class Trainer(BaseTrainer):
                     :, :, :batch["audio"].size(2)]
                 
             self.cfg.mel.device = self.device.type
-            mel_fake = mel_spectrogram(self.cfg.mel, batch["fake_audio"].squeeze(1))
-            mel_real = mel_spectrogram(self.cfg.mel, batch["audio"].squeeze(1))
-            batch["mel_loss"] = self.criterion.l1(mel_fake, mel_real)
+            batch["mel_fake"] = mel_spectrogram(self.cfg.mel, batch["fake_audio"].squeeze(1))
+            batch["mel_real"] = mel_spectrogram(self.cfg.mel, batch["audio"].squeeze(1))
+            batch["mel_loss"] = self.criterion.l1(batch["mel_fake"], batch["mel_real"])
 
         return batch
 
@@ -307,8 +323,8 @@ class Trainer(BaseTrainer):
 
             self.writer.set_step(self.step)
             self.evaluation_metrics.update("f1_mel_loss_val", mel_loss)
-            # self._log_predictions(**batch)
-            # self._log_spectrogram(batch["spectrogram"])
+            self._log_predictions(batch["fake_audio"], batch["audio"])
+            self._log_spectrogram(batch["mel_fake"], batch["mel_real"])
             self._log_scalars(self.evaluation_metrics)
 
         return self.evaluation_metrics.result()
@@ -341,7 +357,9 @@ class Trainer(BaseTrainer):
                     continue
                 else:
                     raise e
-            
+                
+            self.train_metrics.update("Disc grad_norm", self.get_grad_norm(self.disc))
+            self.train_metrics.update("Gen grad_norm", self.get_grad_norm(self.model))
             if self.step % self.log_step == 0:
                 self.writer.set_step(self.step)
                 self.logger.debug(
@@ -352,7 +370,7 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar("disc learning rate", self.disc_lr_scheduler.get_last_lr()[0])
                 self.writer.add_scalar("gen learning rate", self.gen_lr_scheduler.get_last_lr()[0])
                 self._log_scalars(self.train_metrics)
-                #self._log_predictions(**batch)
+                self._log_predictions(batch["fake_audio"], batch["audio"])
                 # we don't want to reset train metrics at the start of every epoch
                 # because we are interested in recent train metrics
                 last_train_metrics = self.train_metrics.result()
