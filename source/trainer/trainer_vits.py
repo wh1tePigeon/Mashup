@@ -71,6 +71,13 @@ class Trainer(BaseTrainer):
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("f1_mel_loss_val")
 
+        if "resume" in self.cfg.trainer and self.cfg.trainer.resume is not None:
+            if self.cfg.trainer.from_pretrained:
+                print('Load pretrained model')
+                self._from_pretrained(self.cfg.trainer.resume)
+            else:
+                print('Resume from checkpoint')
+                self._resume_checkpoint(self.cfg.trainer.resume)
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
         """
@@ -111,7 +118,7 @@ class Trainer(BaseTrainer):
         pretrained_path = str(pretrained_path)
         self.logger.info("Loading checkpoint: {} ...".format(pretrained_path))
         checkpoint = torch.load(pretrained_path, self.device)
-        self.mnt_best = checkpoint["monitor_best"]
+        #self.mnt_best = checkpoint["monitor_best"]
 
         # load architecture params from checkpoint.
         if checkpoint["config"]["gen"] != self.config["gen"] or \
@@ -122,8 +129,8 @@ class Trainer(BaseTrainer):
             )
         
         # load optimizer state (accumulated gradients)
-        self.model.load_state_dict(checkpoint["gen"]["state_dict"])
-        self.disc.load_state_dict(checkpoint["disc"]["state_dict"])
+        self.model.load_state_dict(checkpoint["gen"])
+        self.disc.load_state_dict(checkpoint["disc"])
 
         self.logger.info(
             "Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch)
@@ -216,8 +223,6 @@ class Trainer(BaseTrainer):
         batch = self.move_batch_to_device(batch, self.device)
         
         if is_train:
-            #self.gen_optimizer.zero_grad()
-
             # generator
             batch["fake_audio"], ids_slice, z_mask, \
                 (z_f, z_r, z_p, m_p, logs_p, z_q, m_q, logs_q, logdet_f, logdet_r), spk_preds = self.model(
@@ -255,9 +260,6 @@ class Trainer(BaseTrainer):
                 batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
             
             batch["loss_g"].backward()
-            #self.clip_grad_value_(self.model.parameters(),  None)
-            #self.gen_optimizer.step()
-            
 
             if ((self.step + 1) % self.accum_step == 0):
                 # accumulate gradients for accum steps
@@ -265,7 +267,6 @@ class Trainer(BaseTrainer):
                     param.grad /= self.accum_step
                 # update model
                 self.clip_grad_value_(self.model.parameters(),  None)
-                # update model
                 self.gen_optimizer.step()
                 self.gen_optimizer.zero_grad()
                 

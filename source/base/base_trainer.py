@@ -55,13 +55,6 @@ class BaseTrainer:
             config, self.logger, cfg_trainer["visualize"]
         )
 
-        if "resume" in cfg_trainer and cfg_trainer["resume"] is not None:
-            if cfg_trainer["from_pretrained"]:
-                print('Load pretrained model')
-                self._from_pretrained(cfg_trainer["resume"])
-            else:
-                print('Resume from checkpoint')
-                self._resume_checkpoint(cfg_trainer["resume"])
 
     @abstractmethod
     def _train_epoch(self, epoch):
