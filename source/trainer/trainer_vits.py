@@ -88,7 +88,7 @@ class Trainer(BaseTrainer):
             "monitor_best": self.mnt_best
             }
         os.makedirs(self.checkpoint_dir, exist_ok=True)
-        filename = os.path.join(self.checkpoint_dir, "checkpoint-epoch{}.pth".format(epoch))
+        filename = os.path.join(self.checkpoint_dir, f"checkpoint-{self.cfg.gen.hp.vocoder_name}-epoch{epoch}.pth")
         if not (only_best and save_best):
             torch.save(state, filename)
             self.logger.info("Saving checkpoint: {} ...".format(filename))

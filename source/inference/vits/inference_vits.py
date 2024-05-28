@@ -84,8 +84,10 @@ def inference_vits(cfg):
     model.eval()
 
     checkpoint_dict = torch.load(cfg["checkpoint_path"], map_location="cpu")
-    saved_state_dict = checkpoint_dict["model_g"]
+    #saved_state_dict = checkpoint_dict["model_g"]
+    saved_state_dict = checkpoint_dict["gen"]
     state_dict = model.state_dict()
+
     new_state_dict = {}
     for k, v in state_dict.items():
         try:
@@ -94,7 +96,7 @@ def inference_vits(cfg):
             print("%s is not in the checkpoint" % k)
             new_state_dict[k] = v
     model.load_state_dict(new_state_dict)
-
+    #model.load_state_dict(saved_state_dict)
     retrieval = DummyRetrieval()
     filepath = cfg["filepath"]
     assert os.path.exists(filepath)
@@ -161,14 +163,15 @@ def inference_vits(cfg):
 
 if __name__ == "__main__":
     cfg = {
-        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/vits/sovits5.0.pretrain.pth",
-        "spk" : "/home/comp/Рабочий стол/Mashup/input/singer0001.npy",
-        "ppg" : "/home/comp/Рабочий стол/Mashup/input/test.ppg.npy",
-        "vec" : "/home/comp/Рабочий стол/Mashup/output/hubert/ramm_test_vocal_short/ramm_test_vocal_short_hubert.npy",
-        "pitch" : "/home/comp/Рабочий стол/Mashup/output/pitch/ramm_test_vocal_short/ramm_test_vocal_short_pitch.csv",
+        "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/vits/checkpoint-epoch64.pth",
+        "spk" : "/home/comp/Рабочий стол/Mashup/data_svc_pg/singer/petr_grinberg.spk.npy",
+        "ppg" : "/home/comp/Рабочий стол/Mashup/output/whisper/govnovoz_vocal/govnovoz_vocal_ppg.npy",
+        "vec" : "/home/comp/Рабочий стол/Mashup/output/hubert/govnovoz_vocal/govnovoz_vocal_hubert.npy",
+        "pitch" : "/home/comp/Рабочий стол/Mashup/output/pitch/govnovoz_vocal/govnovoz_vocal_pitch.csv",
         "shift" : 0,
         "model_config" : "/home/comp/Рабочий стол/Mashup/source/configs/vits/base.yaml",
-        "filepath" : "/home/comp/Рабочий стол/Mashup/input/ramm_test_vocal_short.wav",
+        "filepath" : "/home/comp/Рабочий стол/samples/govnovoz_vocal.wav",
         "output_dir" : "/home/comp/Рабочий стол/Mashup/output/vits"
     }
     inference_vits(cfg)
+

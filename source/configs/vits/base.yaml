@@ -69,3 +69,4 @@ dist_config:
   dist_url: "tcp://localhost:54321"
   world_size: 1
 
+vocoder_name: "bigvgan"
