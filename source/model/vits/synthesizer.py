@@ -184,11 +184,11 @@ class SynthesizerTrn(nn.Module):
         if hp.vocoder_name == "bigvgan":
             from source.model.vits.generator.generator import Generator
             self.dec = Generator(hp)
-        # elif hp.vocoder_name == "nsf-hifigan":
-        #     from vdecoder.hifiganwithsnake.models import Generator
-        #     self.dec = Generator(hp)
+        elif hp.vocoder_name == "nsf-hifigan":
+            from source.model.vits.generator.nsfhifigan import NSFHifiGANGenerator
+            self.dec = NSFHifiGANGenerator(hp)
         else:
-            print("[?] Unkown vocoder: use default(bigvgans)")
+            print("[?] Unkown vocoder: use default(bigvgan)")
             from source.model.vits.generator.generator import Generator
             self.dec = Generator(hp)
 

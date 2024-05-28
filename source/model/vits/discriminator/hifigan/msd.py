@@ -9,7 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from source.model.vits.discriminator.hifigan.mpd import LRELU_SLOPE
 
 
-
 class DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super(DiscriminatorS, self).__init__()

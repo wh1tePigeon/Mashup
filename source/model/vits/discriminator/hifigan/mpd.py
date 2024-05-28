@@ -6,7 +6,7 @@ from torch.nn.utils import weight_norm, spectral_norm
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
-from source.model.vits.generator.hifigan import get_padding
+from source.model.vits.generator.nsfhifigan import get_padding
 
 
 LRELU_SLOPE = 0.1

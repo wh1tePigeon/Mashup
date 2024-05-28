@@ -1,4 +1,4 @@
-_target_: source.model.vits.discriminator.discriminator.Discriminator
+_target_: source.model.vits.discriminator.bigvgan.discriminator.Discriminator
 hp:
   mpd:
     periods: [2,3,5,7,11]
