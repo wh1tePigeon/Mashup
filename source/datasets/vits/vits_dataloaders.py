@@ -19,7 +19,7 @@ def create_dataloader_train(data_cfg, n_gpu, rank):
         shuffle=True)
     train_loader = DataLoader(
         train_dataset,
-        num_workers=1,
+        num_workers=4,
         shuffle=False,
         pin_memory=True,
         collate_fn=collate_fn,
@@ -32,7 +32,7 @@ def create_dataloader_eval(data_cfg):
     eval_dataset = TextAudioSpeakerSet(data_cfg["validation_files"], data_cfg)
     eval_loader = DataLoader(
         eval_dataset,
-        num_workers=1,
+        num_workers=2,
         shuffle=False,
         batch_size=data_cfg["batch_size"],
         pin_memory=True,

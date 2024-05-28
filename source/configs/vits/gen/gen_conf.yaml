@@ -21,6 +21,6 @@ hp:
     resblock_dilation_sizes: [[1,3,5], [1,3,5], [1,3,5]]
   data:
     sampling_rate:
-  #vocoder_name: "bigvgan"
-  vocoder_name: "nsf-hifigan"
+  vocoder_name: "bigvgan"
+  #vocoder_name: "nsf-hifigan"
 
