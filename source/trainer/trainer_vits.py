@@ -14,6 +14,7 @@ from source.model.vits.modules.commons import slice_segments
 from source.utils.spec_utils import mel_spectrogram
 from source.logger.utils import plot_spectrogram_to_buf
 from torchvision.transforms import ToTensor
+import torch.nn.functional as F
 
 
 class Trainer(BaseTrainer):
@@ -49,7 +50,7 @@ class Trainer(BaseTrainer):
 
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
-
+        
         self.disc = disc
 
         if len_epoch is None:
@@ -61,7 +62,7 @@ class Trainer(BaseTrainer):
             self.len_epoch = len_epoch
 
         if self.cfg.trainer.log_step is None:
-            self.log_step = self.len_epoch - 1
+            self.log_step = self.len_epoch // 3
 
         self.step = 0
         self.eval_interval = self.cfg.trainer.eval_interval
@@ -69,7 +70,6 @@ class Trainer(BaseTrainer):
         self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g", "feat_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("f1_mel_loss_val")
-        #self.metrics = MetricTracker()
 
 
     def _save_checkpoint(self, epoch, save_best=False, only_best=False):
@@ -284,7 +284,6 @@ class Trainer(BaseTrainer):
             for loss_name in self.loss_names:
                 metrics.update(loss_name, batch[loss_name].item())
 
-            
 
         else:
             if hasattr(self.model, 'module'):
@@ -311,6 +310,7 @@ class Trainer(BaseTrainer):
         :return: A log that contains information about validation
         """
         self.model.eval()
+        self.disc.eval()
         self.evaluation_metrics.reset()
 
         with torch.no_grad():
