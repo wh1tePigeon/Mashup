@@ -9,7 +9,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 from source.utils.pitch import f0_to_coarse
-from source.model.vits.generator.generator import Generator
 from source.model.vits.speaker_classifier import SpeakerClassifier
 from source.model.vits.modules.commons import sequence_mask, rand_slice_segments_with_pitch
 from source.model.vits.modules.modules import ResidualCouplingLayer, Flip, WN
@@ -182,7 +181,18 @@ class SynthesizerTrn(nn.Module):
             4,
             gin_channels=hp.vits.spk_dim
         )
-        self.dec = Generator(hp=hp)
+        if hp.vocoder_name == "bigvgan":
+            from source.model.vits.generator.generator import Generator
+            self.dec = Generator(hp)
+        # elif hp.vocoder_name == "nsf-hifigan":
+        #     from vdecoder.hifiganwithsnake.models import Generator
+        #     self.dec = Generator(hp)
+        else:
+            print("[?] Unkown vocoder: use default(bigvgans)")
+            from source.model.vits.generator.generator import Generator
+            self.dec = Generator(hp)
+
+        #self.dec = Generator(hp=hp)
 
     def forward(self, ppg, vec, pit, spec, spk, ppg_l, spec_l):
         ppg = ppg + torch.randn_like(ppg) * 1  # Perturbation
@@ -240,7 +250,16 @@ class SynthesizerInfer(nn.Module):
             4,
             gin_channels=hp.vits.spk_dim
         )
-        self.dec = Generator(hp=hp)
+        if hp.vocoder_name == "bigvgan":
+            from source.model.vits.generator.generator import Generator
+            self.dec = Generator(hp)
+        # elif hp.vocoder_name == "nsf-hifigan":
+        #     from vdecoder.hifiganwithsnake.models import Generator
+        #     self.dec = Generator(hp)
+        else:
+            print("[?] Unkown vocoder: use default(bigvgans)")
+            from source.model.vits.generator.generator import Generator
+            self.dec = Generator(hp)
 
     def remove_weight_norm(self):
         self.flow.remove_weight_norm()

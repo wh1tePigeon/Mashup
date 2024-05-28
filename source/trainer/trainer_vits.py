@@ -62,7 +62,7 @@ class Trainer(BaseTrainer):
         self.step = 0
         self.eval_interval = self.cfg.trainer.eval_interval
         self.accum_step = self.cfg.trainer.accum_step
-        self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g"]
+        self.loss_names = ["disc_loss", "gen_loss", "stft_loss", "mel_loss", "loss_kl_f", "loss_kl_r", "spk_loss", "loss_g", "feat_loss"]
         self.train_metrics = MetricTracker(*self.loss_names, "Gen grad_norm", "Disc grad_norm")
         self.evaluation_metrics = MetricTracker("f1_mel_loss_val")
 
@@ -238,7 +238,7 @@ class Trainer(BaseTrainer):
                 batch["loss_kl_f"] + batch["loss_kl_r"] * 0.5 + batch["spk_loss"] * 2
             
             batch["loss_g"].backward()
-            self.clip_grad_value_(self.model.parameters(),  None)
+            #self.clip_grad_value_(self.model.parameters(),  None)
             #self.gen_optimizer.step()
             
 

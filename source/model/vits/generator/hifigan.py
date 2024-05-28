@@ -1,14 +1,8 @@
-import copy
-import math
-import numpy as np
-import scipy
 import torch
-from torch import nn
-from torch.nn import functional as F
-
+import torch.nn.functional as F
+import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
-from torch.nn.utils import weight_norm, remove_weight_norm
-
+from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 
 LRELU_SLOPE = 0.1
 
@@ -24,8 +18,9 @@ def get_padding(kernel_size, dilation=1):
 
 
 class ResBlock1(torch.nn.Module):
-    def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
+    def __init__(self, h, channels, kernel_size=3, dilation=(1, 3, 5)):
         super(ResBlock1, self).__init__()
+        self.h = h
         self.convs1 = nn.ModuleList([
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
                                padding=get_padding(kernel_size, dilation[0]))),
@@ -46,19 +41,13 @@ class ResBlock1(torch.nn.Module):
         ])
         self.convs2.apply(init_weights)
 
-    def forward(self, x, x_mask=None):
+    def forward(self, x):
         for c1, c2 in zip(self.convs1, self.convs2):
             xt = F.leaky_relu(x, LRELU_SLOPE)
-            if x_mask is not None:
-                xt = xt * x_mask
             xt = c1(xt)
             xt = F.leaky_relu(xt, LRELU_SLOPE)
-            if x_mask is not None:
-                xt = xt * x_mask
             xt = c2(xt)
             x = xt + x
-        if x_mask is not None:
-            x = x * x_mask
         return x
 
     def remove_weight_norm(self):
@@ -69,8 +58,9 @@ class ResBlock1(torch.nn.Module):
 
 
 class ResBlock2(torch.nn.Module):
-    def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
+    def __init__(self, h, channels, kernel_size=3, dilation=(1, 3)):
         super(ResBlock2, self).__init__()
+        self.h = h
         self.convs = nn.ModuleList([
             weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
                                padding=get_padding(kernel_size, dilation[0]))),
@@ -79,52 +69,80 @@ class ResBlock2(torch.nn.Module):
         ])
         self.convs.apply(init_weights)
 
-    def forward(self, x, x_mask=None):
+    def forward(self, x):
         for c in self.convs:
             xt = F.leaky_relu(x, LRELU_SLOPE)
-            if x_mask is not None:
-                xt = xt * x_mask
             xt = c(xt)
             x = xt + x
-        if x_mask is not None:
-            x = x * x_mask
         return x
 
     def remove_weight_norm(self):
         for l in self.convs:
             remove_weight_norm(l)
 
+
+class SpeakerAdapter(nn.Module):
+
+    def __init__(self,
+                 speaker_dim,
+                 adapter_dim,
+                 epsilon=1e-5
+                 ):
+        super(SpeakerAdapter, self).__init__()
+        self.speaker_dim = speaker_dim
+        self.adapter_dim = adapter_dim
+        self.epsilon = epsilon
+        self.W_scale = nn.Linear(self.speaker_dim, self.adapter_dim)
+        self.W_bias = nn.Linear(self.speaker_dim, self.adapter_dim)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        torch.nn.init.constant_(self.W_scale.weight, 0.0)
+        torch.nn.init.constant_(self.W_scale.bias, 1.0)
+        torch.nn.init.constant_(self.W_bias.weight, 0.0)
+        torch.nn.init.constant_(self.W_bias.bias, 0.0)
+
+    def forward(self, x, speaker_embedding):
+        x = x.transpose(1, -1)
+        mean = x.mean(dim=-1, keepdim=True)
+        var = ((x - mean) ** 2).mean(dim=-1, keepdim=True)
+        std = (var + self.epsilon).sqrt()
+        y = (x - mean) / std
+        scale = self.W_scale(speaker_embedding)
+        bias = self.W_bias(speaker_embedding)
+        y *= scale.unsqueeze(1)
+        y += bias.unsqueeze(1)
+        y = y.transpose(1, -1)
+        return y
+
+
 class Generator(torch.nn.Module):
-    def __init__(self, initial_channel, resblock, resblock_kernel_sizes, resblock_dilation_sizes, upsample_rates, upsample_initial_channel, upsample_kernel_sizes, gin_channels=0):
+    def __init__(self, h):
         super(Generator, self).__init__()
-        self.num_kernels = len(resblock_kernel_sizes)
-        self.num_upsamples = len(upsample_rates)
-        self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
-        resblock = ResBlock1 if resblock == '1' else ResBlock2
+        self.h = h
+        self.num_kernels = len(h.resblock_kernel_sizes)
+        self.num_upsamples = len(h.upsample_rates)
+        self.conv_pre = weight_norm(Conv1d(80, h.upsample_initial_channel, 7, 1, padding=3))
+        resblock = ResBlock1 if h.resblock == '1' else ResBlock2
 
         self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
+        for i, (u, k) in enumerate(zip(h.upsample_rates, h.upsample_kernel_sizes)):
             self.ups.append(weight_norm(
-                ConvTranspose1d(upsample_initial_channel//(2**i), upsample_initial_channel//(2**(i+1)),
+                ConvTranspose1d(h.upsample_initial_channel//(2**i), h.upsample_initial_channel//(2**(i+1)),
                                 k, u, padding=(k-u)//2)))
 
         self.resblocks = nn.ModuleList()
         for i in range(len(self.ups)):
-            ch = upsample_initial_channel//(2**(i+1))
-            for j, (k, d) in enumerate(zip(resblock_kernel_sizes, resblock_dilation_sizes)):
-                self.resblocks.append(resblock(ch, k, d))
+            ch = h.upsample_initial_channel//(2**(i+1))
+            for j, (k, d) in enumerate(zip(h.resblock_kernel_sizes, h.resblock_dilation_sizes)):
+                self.resblocks.append(resblock(h, ch, k, d))
 
-        self.conv_post = Conv1d(ch, 1, 7, 1, padding=3, bias=False)
+        self.conv_post = weight_norm(Conv1d(ch, 1, 7, 1, padding=3))
         self.ups.apply(init_weights)
+        self.conv_post.apply(init_weights)
 
-        if gin_channels != 0:
-            self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
-
-    def forward(self, x, g=None):
+    def forward(self, x):
         x = self.conv_pre(x)
-        if g is not None:
-          x = x + self.cond(g)
-
         for i in range(self.num_upsamples):
             x = F.leaky_relu(x, LRELU_SLOPE)
             x = self.ups[i](x)
@@ -147,3 +165,5 @@ class Generator(torch.nn.Module):
             remove_weight_norm(l)
         for l in self.resblocks:
             l.remove_weight_norm()
+        remove_weight_norm(self.conv_pre)
+        remove_weight_norm(self.conv_post)
