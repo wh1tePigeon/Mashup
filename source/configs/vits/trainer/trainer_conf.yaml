@@ -14,5 +14,5 @@ accum_step: 2
 c_stft: 9
 c_mel: 1.
 c_kl: 0.2
-resume: "$ROOT/checkpoints/vits/pretrained.pth"
-from_pretrained: True
+#resume: "$ROOT/checkpoints/vits/pretrained.pth"
+#from_pretrained: True

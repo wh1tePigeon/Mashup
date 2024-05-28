@@ -16,11 +16,11 @@ hp:
     upsample_rates: [5,4,4,2,2]
     upsample_kernel_sizes: [15,8,8,4,4]
     upsample_initial_channel: 320
-    resblock:
+    resblock: "2"
     resblock_kernel_sizes: [3,7,11]
     resblock_dilation_sizes: [[1,3,5], [1,3,5], [1,3,5]]
   data:
     sampling_rate:
-  vocoder_name: "bigvgan"
-  #vocoder_name: "nsf-hifigan"
+  #vocoder_name: "bigvgan"
+  vocoder_name: "nsf-hifigan"
 
