@@ -1,6 +1,7 @@
 import os
 import sys
 import demucs.api
+#import demucs
 import torchaudio as ta
 import pandas as pd
 from pathlib import Path
@@ -10,6 +11,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from source.inference.cascaded.inference_cascaded import inference_cascaded
 from source.inference.bsrnn.inference_bsrnn import inference_bsrnn
+import timeit
 
 
 def separate_with_cascaded(filepath, model_cfg):
@@ -99,8 +101,8 @@ def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
 
 if __name__ == "__main__":
     cfg_cascaded = {
-        "dirpath" : "/home/comp/Рабочий стол/denoise",
-        "ouput_dir" : "/home/comp/Рабочий стол/denoised",
+        "dirpath" : "/home/comp/Рабочий стол/cascaded_dataset/validation/mixtures",
+        "ouput_dir" : "/home/comp/Рабочий стол/cascaded_inst_base",
         "model_type" : "cascaded",
         "model_cfg" :  {
             "save" : False,
@@ -116,8 +118,8 @@ if __name__ == "__main__":
     }
 
     cfg_hybdemucs = {
-        "dirpath" : "/home/comp/Рабочий стол/pg_output",
-        "ouput_dir" : "/home/comp/Рабочий стол/pg_denoised",
+        "dirpath" : "/home/comp/Рабочий стол/cascaded_dataset/validation/mixtures",
+        "ouput_dir" : "/home/comp/Рабочий стол/demucs_out",
         "model_type" : "hybdemucs",
         "model_cfg" :  {
             "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/htdemucs",

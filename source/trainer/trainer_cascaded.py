@@ -51,7 +51,7 @@ class Trainer(BaseTrainer):
         self.eval_interval = self.config.trainer.eval_interval
         self.accum_step = self.config.trainer.accum_step
         self.train_metrics = MetricTracker("l1_loss", "grad_norm")
-        self.evaluation_metrics = MetricTracker("sdr_loss_val", "l1_loss_val")
+        self.evaluation_metrics = MetricTracker("l1_loss_val")
 
 
     def process_batch(self, batch, is_train: bool, metrics: MetricTracker):
@@ -81,17 +81,8 @@ class Trainer(BaseTrainer):
             y = crop_center(y, pred)
 
             l1_loss = self.criterion.l1(pred, y)
-            
-            #idky but this doesn`t work
-            #sdr_loss = self.criterion.sdr(pred, y)
 
-            sdr = (y * pred).sum()
-            norm_t = torch.linalg.norm(y)
-            norm_p = torch.linalg.norm(pred)
-            mul = norm_t * norm_p + 1e-8
-            sdr = sdr / mul
-
-            return l1_loss.item() * len(X), sdr.item() * len(X)
+            return l1_loss.item() * len(X)
     
 
     def _train_epoch(self, epoch):
