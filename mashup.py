@@ -27,9 +27,6 @@ def mashup(cfg):
     print("Separating vocal")
     cfg["cascaded"]["filepath"] = cfg["filepath"]
     vocal_path, background_path, _ = inference_cascaded(cfg["cascaded"])
-    # vocal_path = "/home/comp/Рабочий стол/Mashup/input/govnovoz_vocal.wav"
-    # filename = "govnovoz"
-    # background_path = "/home/comp/Рабочий стол/Mashup/input/govnovoz_background.wav"
     
     print("Converting vocal")
     cfg["vits"]["filepath"] = vocal_path

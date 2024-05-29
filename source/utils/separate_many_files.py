@@ -101,8 +101,8 @@ def separate(dirpath: str, ouput_dir: str, model_type: str, model_cfg: dict):
 
 if __name__ == "__main__":
     cfg_cascaded = {
-        "dirpath" : "/home/comp/Рабочий стол/cascaded_dataset/validation/mixtures",
-        "ouput_dir" : "/home/comp/Рабочий стол/cascaded_inst_base",
+        "dirpath" : "/home/comp/Рабочий стол/city",
+        "ouput_dir" : "/home/comp/Рабочий стол/demucs_out3",
         "model_type" : "cascaded",
         "model_cfg" :  {
             "save" : False,
@@ -118,8 +118,8 @@ if __name__ == "__main__":
     }
 
     cfg_hybdemucs = {
-        "dirpath" : "/home/comp/Рабочий стол/cascaded_dataset/validation/mixtures",
-        "ouput_dir" : "/home/comp/Рабочий стол/demucs_out",
+        "dirpath" : "/home/comp/Рабочий стол/city",
+        "ouput_dir" : "/home/comp/Рабочий стол/demucs_out4",
         "model_type" : "hybdemucs",
         "model_cfg" :  {
             "checkpoint_path" : "/home/comp/Рабочий стол/Mashup/checkpoints/htdemucs",
