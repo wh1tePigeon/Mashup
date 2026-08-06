@@ -20,6 +20,6 @@ Use source/train_model/train_cascaded for trainig CascadedNet and source/train_m
 ## Credits
 
 This repository is based on a heavily modified fork
-of [hw template](https://github.com/WrathOfGrapes/asr_project_template) repository.
+of [pytorch template](https://github.com/victoresque/pytorch-template) repository.
 
 
