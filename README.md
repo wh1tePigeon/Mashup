@@ -314,7 +314,7 @@ This repository is a heavily modified fork of the [ASR project template](https:/
 
 ## License
 
-MIT License — see [`LICENSE`](./LICENSE).
+This project is distributed under the [MIT License](./LICENSE).
 
 ---
 
